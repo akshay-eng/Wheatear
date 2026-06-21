@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wheatear: Migrate AI agents and workflows between platforms</title>
+  <meta name="description" content="Wheatear is an open-source accelerator for migrating AI agents and workflows between any major orchestration platform, including Copilot Studio, watsonx Orchestrate, OpenAI, Vertex AI, AgentCore, and n8n, in either direction." />
+  <link rel="icon" href="assets/wheatear-mark-64.png" type="image/png" sizes="64x64" />
+  <link rel="icon" href="assets/wheatear-mark-32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="assets/wheatear-mark-256.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@450;500;600;650;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <div class="spotlight" aria-hidden="true"></div>
+
+  <nav class="nav">
+    <div class="wrap">
+      <a href="#top" class="brand">
+        <img src="assets/wheatear-mark-128.png" alt="Wheatear" width="52" height="37" />
+        Wheatear
+      </a>
+      <ul class="nav-links">
+        <li><a href="#problem">Why</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#approach">Approach</a></li>
+        <li><a href="#platforms">Platforms</a></li>
+        <li><a href="https://github.com/akshay-eng/Wheatear">GitHub</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a class="btn btn-primary btn-sm" href="https://github.com/akshay-eng/Wheatear">Star on GitHub</a>
+        <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <!-- Hero -->
+    <header class="hero">
+      <img class="hero-mark" src="assets/wheatear-mark.png" alt="" aria-hidden="true" />
+      <div class="wrap">
+        <div class="telemetry intro intro-3" aria-hidden="true">
+          <div class="telemetry-row"><span>Status</span><strong class="flap-text">Active</strong></div>
+          <div class="telemetry-row"><span>Mode</span><strong class="flap-text">Any ⇄ Any</strong></div>
+          <div class="telemetry-row"><span>Stages</span><strong class="flap-text">5</strong></div>
+          <div class="telemetry-row"><span>Log</span><strong class="flap-text">No. 001</strong></div>
+        </div>
+        <span class="stamp intro intro-1">Migration log <strong>NO. 001</strong> · open-source · any framework, either direction</span>
+        <h1 class="intro intro-2">Move your AI agents anywhere.<br>Stop rebuilding them every time a vendor changes.</h1>
+        <p class="hero-sub intro intro-3">
+          Wheatear converts agents and workflows between any of the major orchestration platforms,
+          including Copilot Studio, watsonx Orchestrate, OpenAI, Vertex AI, Bedrock AgentCore, and n8n,
+          in either direction. A platform switch becomes a migration, not a rewrite.
+        </p>
+        <div class="hero-actions intro intro-4">
+          <a class="btn btn-primary" href="https://github.com/akshay-eng/Wheatear">View on GitHub</a>
+          <a class="btn btn-ghost" href="#approach">See how it works</a>
+        </div>
+
+        <div class="route intro intro-5">
+          <svg class="route-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
+            <path id="routePathDef" class="route-path" d="M 90 150 C 280 70, 360 70, 500 110 C 640 150, 720 70, 910 70" />
+            <circle class="route-node" cx="90" cy="150" r="5"></circle>
+            <circle class="route-ping" cx="500" cy="110" r="14"></circle>
+            <circle class="route-node core" cx="500" cy="110" r="9"></circle>
+            <circle class="route-node" cx="910" cy="70" r="5"></circle>
+            <circle class="route-marker" r="4">
+              <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto">
+                <mpath href="#routePathDef"></mpath>
+              </animateMotion>
+            </circle>
+          </svg>
+          <div class="route-row">
+            <div class="route-col">
+              <span class="route-label">From</span>
+              <span class="waypoint">Copilot Studio</span>
+              <span class="waypoint">n8n</span>
+              <span class="waypoint">Vertex AI</span>
+            </div>
+            <div class="route-core">
+              <div class="core-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#E2924B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 2v5M12 17v5M2 12h5M17 12h5M4.9 4.9l3.5 3.5M15.6 15.6l3.5 3.5M19.1 4.9l-3.5 3.5M8.4 15.6l-3.5 3.5"></path>
+                </svg>
+              </div>
+              <span>CANONICAL IR</span>
+              <span class="route-bidir">⇄ either direction</span>
+            </div>
+            <div class="route-col right">
+              <span class="route-label">To</span>
+              <span class="waypoint">watsonx Orchestrate</span>
+              <span class="waypoint">AgentCore</span>
+              <span class="waypoint">OpenAI</span>
+            </div>
+          </div>
+        </div>
+        <p class="route-caption intro intro-5">
+          Modeled on the <span class="count-up" data-target="14500">0</span><span class="unit">km</span> the Northern Wheatear flies every year: the longest migration of any songbird, relative to body size.
+        </p>
+      </div>
+    </header>
+
+    <!-- Problem (manifest entries, not a card grid) -->
+    <section id="problem">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Agent platform fragmentation is already a real cost, not a future one</h2>
+          <p>Enterprises run production agents on more orchestrators than they admit to. Every M&A deal, vendor renegotiation, or platform sunset turns into a from-scratch rebuild, paid for in consulting hours, not software.</p>
+        </div>
+        <div class="manifest">
+          <div class="manifest-entry reveal">
+            <span class="manifest-index">E&#8209;01</span>
+            <div>
+              <h3>Vendor lock-in is structural</h3>
+              <p>Dialog graphs, instruction-based agents, and visual flows aren't variants of each other. They're different paradigms. Leaving a platform means losing the logic, not just the syntax.</p>
+            </div>
+          </div>
+          <div class="manifest-entry reveal">
+            <span class="manifest-index">E&#8209;02</span>
+            <div>
+              <h3>The forcing functions are now</h3>
+              <p>Acquisitions inherit a different stack. Vendor relationships shift. Pricing and roadmaps change. None of this waits for a "someday" migration plan.</p>
+            </div>
+          </div>
+          <div class="manifest-entry reveal">
+            <span class="manifest-index">E&#8209;03</span>
+            <div>
+              <h3>Migrations today are manual</h3>
+              <p>Systems integrators rebuild agents by hand, topic by topic. It's slow, inconsistent, and the knowledge of how the original agent actually behaved walks out the door with whoever built it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works (numbered sequence, legitimate use) -->
+    <section id="how" class="section-band">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>One pipeline. A clear line between what's deterministic and what needs AI.</h2>
+          <p>Every migration runs through the same five stages. Mechanical work stays mechanical and auditable; behavioral translation gets AI assistance inside a schema-validated box.</p>
+        </div>
+        <div class="timeline">
+          <div class="timeline-track">
+            <div class="stage reveal">
+              <span class="stage-num">01</span>
+              <h4>Extract</h4>
+              <p>Pull the source agent using the platform's own export mechanism: <code>pac copilot clone</code>, ADK export, or equivalent.</p>
+              <span class="stage-tag tag-deterministic">Deterministic</span>
+            </div>
+            <div class="stage reveal">
+              <span class="stage-num">02</span>
+              <h4>Normalize</h4>
+              <p>Parse the raw export into Wheatear's canonical IR: one schema for agents, tools, triggers, knowledge, and connections.</p>
+              <span class="stage-tag tag-deterministic">Deterministic</span>
+            </div>
+            <div class="stage reveal">
+              <span class="stage-num">03</span>
+              <h4>Map</h4>
+              <p>Convert tool schemas, connections, credentials, and knowledge sources with explicit, testable field mappings.</p>
+              <span class="stage-tag tag-deterministic">Deterministic</span>
+            </div>
+            <div class="stage reveal">
+              <span class="stage-num">04</span>
+              <h4>Translate</h4>
+              <p>Turn dialog graphs and conditional flows into agent instructions and tool-use guidance, where intent has to be understood, not just copied.</p>
+              <span class="stage-tag tag-ai">AI-assisted</span>
+            </div>
+            <div class="stage reveal">
+              <span class="stage-num">05</span>
+              <h4>Validate</h4>
+              <p>Schema-check the generated spec, run eval cases derived from the original flows, and route low-confidence output to a human reviewer.</p>
+              <span class="stage-tag tag-hybrid">Hybrid + review gate</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Approach -->
+    <section id="approach">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Deterministic where it must be correct. AI where it must understand intent.</h2>
+          <p>An LLM should never freely reinterpret a credential or a tool schema. It should be the thing that reads a fifteen-branch dialog tree and figures out what the agent was actually trying to do.</p>
+        </div>
+        <div class="split">
+          <div class="split-card deterministic reveal">
+            <span class="label">Deterministic</span>
+            <h3>Reproducible, auditable, no guessing</h3>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Tool and function schema conversion</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Connection, auth, and credential references</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Knowledge base and environment variable mapping</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Target schema scaffolding and validation</li>
+            </ul>
+          </div>
+          <div class="split-card ai reveal">
+            <span class="label">AI-assisted</span>
+            <h3>Semantic translation, boxed in by validation</h3>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Dialog graph → agent instructions</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Multi-topic bots → agent + collaborators</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Confidence scoring on ambiguous conversions</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Behavioral parity checks against the original flow</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IR terminal / data visualization -->
+    <section id="ir" class="section-band">
+      <div class="wrap terminal-wrap">
+        <div class="terminal-copy reveal">
+          <h2>One canonical IR. Every platform reads and writes the same shape.</h2>
+          <p>Every importer normalizes into this schema; every exporter reads from it. Adding a platform costs two connectors, not a translator for every pair already supported.</p>
+          <p>Mechanical fields, like tools, connections, and knowledge sources, map straight through. Behavioral fields are where the AI-assisted translation step does its work.</p>
+        </div>
+        <div class="terminal reveal">
+          <div class="terminal-bar">
+            <span class="dot dot-slate"></span>
+            <span class="dot dot-gold"></span>
+            <span class="dot dot-amber"></span>
+            <span class="terminal-tab">agent.ir.yaml</span>
+          </div>
+          <pre class="terminal-body"><span class="c"># normalized from Copilot Studio export</span>
+<span class="k">spec_version:</span> <span class="s">wheatear/v1</span>
+<span class="k">name:</span> <span class="s">support_router</span>
+<span class="k">source:</span> <span class="r">copilot-studio</span>
+<span class="k">instructions:</span> <span class="s">|</span>
+  <span class="s">Route support requests to the right</span>
+  <span class="s">team based on issue category and</span>
+  <span class="s">customer tier.</span>
+<span class="k">tools:</span>
+  <span class="k">- ref:</span> <span class="s">lookup_ticket</span>
+    <span class="k">confidence:</span> <span class="r">0.97</span>
+<span class="k">knowledge:</span>
+  <span class="k">- ref:</span> <span class="s">kb_support_docs</span>
+<span class="k">review_required:</span> <span class="r">false</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Platforms (manifest list, log rows not cards) -->
+    <section id="platforms">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Platform manifest</h2>
+          <p>Every connector reads from and writes to the canonical IR above, so migration runs in either direction between any two platforms in the manifest below.</p>
+        </div>
+        <div class="manifest-list">
+          <div class="log-row reveal"><span class="log-name">Microsoft Copilot Studio</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">IBM watsonx Orchestrate</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">OpenAI Agents SDK</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">Anthropic Claude SDK</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">Google Vertex AI Agent Builder</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">AWS Bedrock AgentCore</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">n8n</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+          <div class="log-row reveal"><span class="log-name">Microsoft Semantic Kernel</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA: the one committed-color surface -->
+    <section>
+      <div class="wrap">
+        <div class="cta reveal">
+          <div>
+            <h2>Pick any two platforms. Wheatear moves the agent between them.</h2>
+            <p>Built around one canonical IR, every connector above works in either direction. Follow the project, file an issue with a migration scenario you care about, or contribute a connector.</p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="https://github.com/akshay-eng/Wheatear">Follow on GitHub</a>
+            <a class="btn btn-ghost" href="https://github.com/akshay-eng/Wheatear/issues">Suggest a platform</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="footer-brand">
+        <img src="assets/wheatear-mark-64.png" alt="Wheatear" width="36" height="26" />
+        <p class="footer-note">
+          NAMESAKE: Northern Wheatear (Oenanthe oenanthe). Alaska to East Africa, about 14,500 km.
+          The longest migration relative to body size of any songbird on Earth.
+        </p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="https://github.com/akshay-eng/Wheatear">GitHub</a></li>
+        <li><a href="https://github.com/akshay-eng/Wheatear/issues">Issues</a></li>
+        <li><a href="https://github.com/akshay-eng/Wheatear/blob/main/LICENSE">License</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
