@@ -1,0 +1,6 @@
+<bot schemaname="ai_FakeBot">
+  <iscustomizable>0</iscustomizable>
+  <language>1033</language>
+  <name>IT Help Bot</name>
+  <template>default-2.1.0</template>
+</bot>

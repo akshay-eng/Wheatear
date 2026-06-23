@@ -1,0 +1,20 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Escalate
+    includeInOnSelectIntent: true
+    triggerQueries:
+      - talk to a human
+      - I need a person
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_esc001
+      activity:
+        text:
+          - Connecting you with the IT helpdesk team now.
+
+    - kind: CancelAllDialogs
+      id: cancelAllDialogs_esc002

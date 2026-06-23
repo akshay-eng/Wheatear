@@ -1,0 +1,10 @@
+<botcomponent schemaname="ai_FakeBot.topic.Escalate">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Talk to a person</name>
+  <parentbotid>
+    <schemaname>ai_FakeBot</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

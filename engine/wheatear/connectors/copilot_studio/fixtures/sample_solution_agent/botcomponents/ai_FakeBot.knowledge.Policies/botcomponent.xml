@@ -1,0 +1,11 @@
+<botcomponent schemaname="ai_FakeBot.knowledge.Policies">
+  <componenttype>16</componenttype>
+  <description>This knowledge source provides information found in IT Policies SharePoint.</description>
+  <iscustomizable>0</iscustomizable>
+  <name>ITPolicies</name>
+  <parentbotid>
+    <schemaname>ai_FakeBot</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

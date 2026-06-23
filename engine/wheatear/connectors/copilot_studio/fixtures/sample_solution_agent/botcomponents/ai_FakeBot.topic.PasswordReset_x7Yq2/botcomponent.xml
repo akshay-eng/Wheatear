@@ -1,0 +1,10 @@
+<botcomponent schemaname="ai_FakeBot.topic.PasswordReset_x7Yq2">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>PasswordReset</name>
+  <parentbotid>
+    <schemaname>ai_FakeBot</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

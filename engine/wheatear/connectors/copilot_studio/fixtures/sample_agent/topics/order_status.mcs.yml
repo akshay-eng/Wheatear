@@ -1,0 +1,31 @@
+kind: AdaptiveDialog
+trigger:
+  type: phrases
+  phrases:
+    - where is my order
+    - order status
+beginDialog:
+  kind: OnTriggerActivity
+  id: main
+  actions:
+    - kind: Question
+      id: askOrderId
+      prompt: "What's your order ID?"
+      variable: Topic.orderId
+    - kind: InvokeConnectorAction
+      id: lookupOrder
+      connector: SalesforceOrderLookup
+      input: Topic.orderId
+    - kind: ConditionGroup
+      id: checkStatus
+      conditions:
+        - condition: "Topic.orderStatus == 'delayed'"
+          actions:
+            - kind: SendActivity
+              activity: "Your order is delayed, sorry about that."
+      elseActions:
+        - kind: SendActivity
+          activity: "Your order is on track."
+    - kind: SearchAndSummarizeContent
+      id: searchPolicy
+      knowledgeSource: ReturnsPolicyKB

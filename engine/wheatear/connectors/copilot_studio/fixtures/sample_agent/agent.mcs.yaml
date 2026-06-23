@@ -1,0 +1,7 @@
+kind: AgentDialog
+schemaName: cr123_supportRouter
+displayName: Support Router
+language: en-US
+topics:
+  - greeting
+  - order_status

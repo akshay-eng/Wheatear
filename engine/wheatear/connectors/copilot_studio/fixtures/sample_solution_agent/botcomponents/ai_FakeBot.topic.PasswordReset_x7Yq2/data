@@ -1,0 +1,28 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: PasswordReset
+    includeInOnSelectIntent: true
+    triggerQueries:
+      - reset my password
+      - I forgot my password
+
+  actions:
+    - kind: Question
+      id: askUsername_pr01
+      prompt:
+        activity:
+          text:
+            - What's your username?
+      variable: Topic.username
+
+    - kind: SendActivity
+      id: sendMessage_pr02
+      activity:
+        text:
+          - A password reset link has been sent to your registered email.
+
+    - kind: CancelAllDialogs
+      id: cancelAllDialogs_pr03

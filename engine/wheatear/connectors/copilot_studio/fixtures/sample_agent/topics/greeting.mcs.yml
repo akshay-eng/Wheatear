@@ -1,0 +1,14 @@
+kind: AdaptiveDialog
+trigger:
+  type: phrases
+  phrases:
+    - hi
+    - hello
+    - hey there
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendActivity
+      id: sendGreeting
+      activity: "Hi, how can I help you today?"
