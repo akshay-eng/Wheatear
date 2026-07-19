@@ -68,15 +68,55 @@ def test_cli_migrate_rejects_unsupported_corridor(tmp_path):
     assert "Unsupported corridor" in result.output
 
 
-def test_cli_migrate_fails_clearly_without_api_key(tmp_path, monkeypatch):
+def test_cli_migrate_without_api_key_falls_back_to_deterministic(tmp_path, monkeypatch):
+    """The deterministic core must run without any LLM: with no API key set,
+    migrate carries the source prompt over verbatim rather than failing.
+    """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     runner = CliRunner()
+    out = tmp_path / "out"
     result = runner.invoke(
         main,
-        ["migrate", "--from", "copilot-studio", "--to", "orchestrate", str(FIXTURE_DIR), str(tmp_path / "out")],
+        ["migrate", "--from", "copilot-studio", "--to", "orchestrate", str(FIXTURE_DIR), str(out)],
     )
-    assert result.exit_code != 0
-    assert "ANTHROPIC_API_KEY" in result.output
+    assert result.exit_code == 0, result.output
+    assert "deterministic fallback" in result.output
+    assert (out / "agent.yaml").exists()
+
+
+def test_cli_convert_is_deterministic_and_accepts_a_file(tmp_path):
+    """`convert` maps a single exported Orchestrate agent.yaml to a Copilot
+    solution with no LLM at all -- pure field mapping, file input allowed.
+    """
+    import yaml
+
+    src = tmp_path / "agent.yaml"
+    src.write_text(yaml.safe_dump({
+        "agent": {"name": "Incident_Agent", "instructions": "You are an SRE agent.",
+                  "llm": "groq/openai/gpt-oss-120b", "style": "react"},
+        "toolkits": [{"name": "SNOWMCP", "type": "mcp", "mcp_server_url": "http://10.0.0.1:8000/sse"}],
+    }))
+    out = tmp_path / "cp"
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["convert", "--from", "orchestrate", "--to", "copilot-studio", str(src), str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert (out / "solution.xml").exists()
+    # instructions carried over verbatim, no AI
+    data = (out / "botcomponents" / "wx_IncidentAgent.gpt.default" / "data").read_text()
+    assert "You are an SRE agent." in data
+
+
+def test_cli_migrate_no_llm_flag_skips_translate(tmp_path):
+    runner = CliRunner()
+    out = tmp_path / "out"
+    result = runner.invoke(
+        main,
+        ["migrate", "--from", "copilot-studio", "--to", "orchestrate", "--no-llm", str(FIXTURE_DIR), str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert (out / "agent.yaml").exists()
 
 
 def test_cli_help_lists_wizard_and_existing_commands():

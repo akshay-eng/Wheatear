@@ -4,7 +4,13 @@
 DESIGN.md
 
 # Real customer exports used for calibration -- never commit these.
+# (agent exports + migration outputs carry internal endpoints/instructions)
 copilot-export/
+engine/Incident_Managementagent_*-export.*
+engine/copilot-studio-migration/
+engine/exports/
+orch.md
+test-export.zip
 
 # Python
 engine/.venv/

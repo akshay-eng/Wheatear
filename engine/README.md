@@ -9,8 +9,11 @@ Microsoft Copilot Studio → IBM watsonx Orchestrate.
 cd engine
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev,anthropic]"
+pip install -e ".[dev,anthropic,google]"
 ```
+
+LLM providers are optional extras — install whichever you'll actually use
+(`anthropic`, `google`; `openai` and `watsonx` extras exist but have no adapter yet).
 
 ## Usage
 
@@ -36,7 +39,7 @@ pac copilot clone --bot <bot-id> --output-dir ./my-agent-clone
 wheatear extract ./my-agent-clone
 
 # 3. Run the full pipeline (needs an LLM key for the Translate stage)
-export ANTHROPIC_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-...   # or GEMINI_API_KEY with --llm-provider google
 wheatear migrate --from copilot-studio --to orchestrate ./my-agent-clone ./out
 
 # 4. Review ./out/review-manifest.yaml (if present) before importing

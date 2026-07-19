@@ -100,6 +100,39 @@ def test_import_extracts_knowledge_source_with_structured_metadata():
     assert "acme.sharepoint.com" in ref.detail
 
 
+def test_import_extracts_welcome_message_from_conversation_start():
+    """The ConversationStart topic's first message is the welcome message, and
+    the {System.Bot.Name} placeholder is substituted with the real agent name.
+    """
+    result = import_agent(FIXTURE_DIR)
+    assert result.agent.welcome_message is not None
+    assert result.agent.welcome_message.startswith("Hello, I'm IT Help Bot.")
+    assert "{System.Bot.Name}" not in result.agent.welcome_message
+
+
+def test_import_reads_channels_and_content_moderation_from_configuration():
+    result = import_agent(FIXTURE_DIR)
+    assert result.agent.channels == ["msteams"]
+    assert result.agent.content_moderation == "Low"
+
+
+def test_import_extracts_web_search_capability_from_gpt_component():
+    result = import_agent(FIXTURE_DIR)
+    assert result.agent.web_search is True
+
+
+def test_bare_search_and_summarize_does_not_create_phantom_knowledge():
+    """A SearchAndSummarizeContent action with no explicit knowledgeSource is
+    generative search over the agent's own knowledge, not a distinct source.
+    It must not fabricate a knowledge ref (regression: it produced a phantom
+    'search-content' knowledge base). Only the real ITPolicies source remains.
+    """
+    result = import_agent(FIXTURE_DIR)
+    names = [ref.name for ref in result.raw_knowledge_refs]
+    assert names == ["ITPolicies"]
+    assert "search-content" not in names
+
+
 def test_import_raises_clear_error_on_non_solution_dir(tmp_path):
     import pytest
 

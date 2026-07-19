@@ -1,0 +1,12 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendActivity
+      id: sendMessage_start
+      activity:
+        text:
+          - |-
+            Hello, I'm {System.Bot.Name}.
+            I'm here to help with IT questions.

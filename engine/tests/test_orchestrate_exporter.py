@@ -83,3 +83,50 @@ def test_export_omits_review_manifest_when_nothing_needs_review(tmp_path):
 
     assert not result.needs_review
     assert result.review_manifest_path is None
+
+
+def test_export_emits_welcome_content_in_adk_shape(tmp_path):
+    agent = make_agent(welcome_message="Hello, I'm Helper Bee.")
+
+    result = export_agent(agent, tmp_path)
+    spec = yaml.safe_load(result.agent_path.read_text())
+
+    assert spec["welcome_content"]["welcome_message"] == "Hello, I'm Helper Bee."
+    assert spec["welcome_content"]["is_default_message"] is False
+
+
+def test_export_resolves_model_by_tier_and_flags_it(tmp_path):
+    agent = make_agent(model_hint="GPT5Chat")
+
+    result = export_agent(agent, tmp_path)
+    spec = yaml.safe_load(result.agent_path.read_text())
+
+    # Model tiered to a concrete Orchestrate model, and the swap is flagged.
+    assert spec["llm"].startswith("watsonx/")
+    manifest = yaml.safe_load(result.review_manifest_path.read_text())
+    model_items = [i for i in manifest["review_items"] if i["type"] == "model"]
+    assert len(model_items) == 1
+    assert "GPT5Chat" in model_items[0]["detail"]
+
+
+def test_export_flags_unmappable_channels_moderation_and_web_search(tmp_path):
+    agent = make_agent(
+        channels=["msteams", "Microsoft365Copilot"],
+        content_moderation="Low",
+        web_search=True,
+    )
+
+    result = export_agent(agent, tmp_path)
+    manifest = yaml.safe_load(result.review_manifest_path.read_text())
+    types = {item["type"] for item in manifest["review_items"]}
+
+    assert {"channel", "content_moderation", "web_search"} <= types
+
+
+def test_export_does_not_flag_model_when_source_specified_none(tmp_path):
+    agent = make_agent()  # no model_hint
+
+    result = export_agent(agent, tmp_path)
+
+    # Nothing to confirm swapping from, so no manifest at all.
+    assert result.review_manifest_path is None

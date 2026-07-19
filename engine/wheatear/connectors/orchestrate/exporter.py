@@ -16,8 +16,12 @@ from pathlib import Path
 import yaml
 
 from wheatear.ir.schema import Agent
+from wheatear.model_map import resolve_target_model
 
-DEFAULT_LLM = "watsonx/meta-llama/llama-3-3-70b-instruct"
+# Channels the source agent may have been published to that have no equivalent
+# Orchestrate deployment surface; the exporter flags these for the human rather
+# than pretending they carried over.
+_UNMAPPABLE_CHANNELS = {"msteams", "Microsoft365Copilot"}
 
 
 @dataclass
@@ -38,18 +42,65 @@ def _dump_yaml(data: dict, path: Path) -> None:
 
 
 def _agent_spec(agent: Agent, llm: str) -> dict:
-    spec = {
+    spec: dict = {
         "spec_version": "v1",
         "kind": "native",
         "name": agent.name,
-        "instructions": agent.instructions,
         "llm": llm,
-        "style": "default",
-        "collaborators": [],
+        "style": agent.agent_style or "default",
+        "instructions": agent.instructions,
+        "collaborators": [c.ref for c in agent.collaborators],
         "tools": [t.ref for t in agent.tools],
     }
+    if agent.description:
+        spec["description"] = agent.description
+    if agent.guidelines:
+        # ADK AgentGuideline schema: display_name?/condition/action/tool?.
+        spec["guidelines"] = [
+            {
+                k: v
+                for k, v in {
+                    "display_name": g.name,
+                    "condition": g.condition,
+                    "action": g.action,
+                    "tool": g.tool_ref,
+                }.items()
+                if v is not None
+            }
+            for g in agent.guidelines
+        ]
     if agent.knowledge:
         spec["knowledge_base"] = [k.ref for k in agent.knowledge]
+    if agent.welcome_message:
+        # ADK WelcomeContent schema (welcome_content.py).
+        spec["welcome_content"] = {
+            "welcome_message": agent.welcome_message,
+            "is_default_message": False,
+        }
+    if agent.starter_prompts:
+        # ADK StarterPrompts schema: prompts each need a stable id + title.
+        spec["starter_prompts"] = {
+            "is_default_prompts": False,
+            "prompts": [
+                {"id": f"prompt_{i}", "title": p, "prompt": p}
+                for i, p in enumerate(agent.starter_prompts)
+            ],
+        }
+    if agent.guidelines:
+        # ADK AgentGuideline schema: display_name?/condition/action/tool?.
+        spec["guidelines"] = [
+            {
+                k: v
+                for k, v in {
+                    "display_name": g.name,
+                    "condition": g.condition,
+                    "action": g.action,
+                    "tool": g.tool_ref,
+                }.items()
+                if v is not None
+            }
+            for g in agent.guidelines
+        ]
     return spec
 
 
@@ -63,8 +114,51 @@ def _connection_spec(conn) -> dict:
     }
 
 
-def _review_manifest(agent: Agent) -> dict | None:
+def _review_manifest(agent: Agent, llm: str) -> dict | None:
     items: list[dict] = []
+
+    # A model the source explicitly chose is never a 1:1 carry-over, so ask a
+    # human to confirm the swap and re-check capability parity (see model_map).
+    # If the source specified no model, there's nothing to confirm swapping from.
+    if agent.model_hint:
+        items.append(
+            {
+                "type": "model",
+                "detail": f"Source model '{agent.model_hint}' mapped to '{llm}'.",
+                "notes": ["Confirm the target model meets the agent's needs before relying on it."],
+            }
+        )
+
+    unmappable = [c for c in agent.channels if c in _UNMAPPABLE_CHANNELS]
+    if unmappable:
+        items.append(
+            {
+                "type": "channel",
+                "detail": f"Source published to {', '.join(unmappable)}, which have no Orchestrate equivalent.",
+                "notes": ["Re-publish to an Orchestrate channel; Teams/M365 targets do not carry over."],
+            }
+        )
+
+    if agent.content_moderation:
+        items.append(
+            {
+                "type": "content_moderation",
+                "detail": f"Source content moderation was '{agent.content_moderation}'.",
+                "notes": [
+                    "Orchestrate has no moderation slider; encode this posture as a guardrail "
+                    "guideline or instruction clause if it matters."
+                ],
+            }
+        )
+
+    if agent.web_search:
+        items.append(
+            {
+                "type": "web_search",
+                "detail": "Source agent had web browsing / public web search enabled.",
+                "notes": ["Add an explicit web-search tool on Orchestrate to reproduce this."],
+            }
+        )
 
     if agent.translation_confidence < 0.8:
         items.append(
@@ -76,7 +170,20 @@ def _review_manifest(agent: Agent) -> dict | None:
         )
 
     for t in agent.tools:
-        if t.review_required:
+        if t.mcp_server_url:
+            # A portable MCP tool: not a blocker, but the endpoint must be
+            # registered on the target (orchestrate toolkits import ... mcp).
+            item = {
+                "type": "mcp_tool",
+                "ref": t.ref,
+                "detail": f"Register the MCP server '{t.ref}' at {t.mcp_server_url}"
+                + (f" (transport: {t.transport})" if t.transport else "")
+                + " and confirm it's reachable from Orchestrate.",
+            }
+            if t.member_tools:
+                item["tools"] = t.member_tools
+            items.append(item)
+        elif t.review_required:
             items.append(
                 {
                     "type": "tool",
@@ -112,9 +219,18 @@ def _review_manifest(agent: Agent) -> dict | None:
     return {"agent": agent.name, "review_items": items}
 
 
-def export_agent(agent: Agent, output_dir: Path, llm: str = DEFAULT_LLM) -> ExportResult:
-    """Write an IR Agent to a watsonx Orchestrate-ready directory layout."""
+def export_agent(agent: Agent, output_dir: Path, llm: str | None = None) -> ExportResult:
+    """Write an IR Agent to a watsonx Orchestrate-ready directory layout.
+
+    When `llm` is not given, the target model is resolved from the source
+    model hint by capability tier (see model_map); the choice is always
+    surfaced in the review manifest for a human to confirm.
+    """
     output_dir = Path(output_dir)
+
+    if llm is None:
+        llm = resolve_target_model(agent.model_hint)
+    agent.model_family = llm
 
     agent_path = output_dir / "agent.yaml"
     _dump_yaml(_agent_spec(agent, llm), agent_path)
@@ -126,7 +242,7 @@ def export_agent(agent: Agent, output_dir: Path, llm: str = DEFAULT_LLM) -> Expo
         connection_paths.append(conn_path)
 
     review_manifest_path = None
-    manifest = _review_manifest(agent)
+    manifest = _review_manifest(agent, llm)
     if manifest is not None:
         review_manifest_path = output_dir / "review-manifest.yaml"
         _dump_yaml(manifest, review_manifest_path)

@@ -108,3 +108,28 @@ def translate_agent(agent: Agent, provider: LLMProvider) -> Agent:
     agent.translation_confidence = result.confidence
     agent.translation_notes = result.notes
     return agent
+
+
+def deterministic_instructions(agent: Agent) -> Agent:
+    """No-LLM fallback for Translate. The deterministic core must be able to
+    migrate without any AI: a generative source agent already has a system
+    prompt, which carries over verbatim (lossless). Only a pure dialog-tree
+    agent with no prompt truly needs the LLM. Returns the same Agent, mutated.
+    """
+    if agent.existing_instructions:
+        agent.instructions = agent.existing_instructions
+        agent.translation_confidence = 1.0
+        agent.translation_notes.append("Instructions carried over verbatim (deterministic, no LLM).")
+    else:
+        rendered = "\n\n".join(
+            f"# {t.name}\n" + "\n".join(n.text for n in t.nodes if n.text)
+            for t in agent.topics
+            if not t.is_system_topic and any(n.text for n in t.nodes)
+        )
+        agent.instructions = rendered or f"{agent.name} agent."
+        agent.translation_confidence = 0.7 if rendered else 0.5
+        agent.translation_notes.append(
+            "Instructions assembled deterministically from topics without an LLM; "
+            "run with an LLM provider for a higher-fidelity translation."
+        )
+    return agent

@@ -1,306 +1,1168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wheatear: Migrate AI agents and workflows between platforms</title>
-  <meta name="description" content="Wheatear is an open-source accelerator for migrating AI agents and workflows between any major orchestration platform, including Copilot Studio, watsonx Orchestrate, OpenAI, Vertex AI, AgentCore, and n8n, in either direction." />
-  <link rel="icon" href="assets/wheatear-mark-64.png" type="image/png" sizes="64x64" />
-  <link rel="icon" href="assets/wheatear-mark-32.png" type="image/png" sizes="32x32" />
-  <link rel="apple-touch-icon" href="assets/wheatear-mark-256.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@450;500;600;650;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wheatear — migrate AI agents between platforms, without the rewrite</title>
+<meta name="description" content="Wheatear is an open-source migration engine for AI agents. It discovers agents on Copilot Studio, watsonx Orchestrate, and soon ServiceNow AI Agents, Salesforce Agentforce, Vertex AI, AgentCore, n8n, Zapier, and Dify, converts them through a canonical IR — deterministic where correctness matters, AI-assisted only as a last mile — and deploys them to the other side." />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="assets/wheatear-mark-64.png" type="image/png" sizes="64x64" />
+<link rel="apple-touch-icon" href="assets/wheatear-mark-256.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@450;500;600;650;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   WHEATEAR · The Migration Log
+   Dark instrument panel. One live color: Waypoint Amber.
+   ============================================================ */
+:root{
+  --logbook:oklch(16% 0.012 55);
+  --ledger:oklch(20% 0.014 55);
+  --manifest:oklch(22% 0.015 55);
+  --manifest-deep:oklch(13% 0.012 55);
+  --hairline:oklch(100% 0 0 / 8%);
+  --hairline-strong:oklch(100% 0 0 / 14%);
+  --ink:oklch(96% 0.012 80);
+  --ink-2:oklch(76% 0.02 70);
+  --ink-3:oklch(58% 0.018 70);
+  --amber:oklch(74% 0.14 55);
+  --amber-strong:oklch(80% 0.13 55);
+  --amber-ink:oklch(18% 0.03 55);
+  --amber-soft:oklch(74% 0.14 55 / 12%);
+  --slate:oklch(68% 0.045 240);
+  --slate-soft:oklch(68% 0.045 240 / 12%);
+  --green:oklch(72% 0.11 150);
+  --green-soft:oklch(72% 0.11 150 / 10%);
+  --gold:oklch(78% 0.12 85);
+  --red:oklch(66% 0.16 25);
+  --sans:"Archivo",-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+  --wrap:1120px;
+  --z-nav:30; --z-toast:40;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} }
+body{
+  background:var(--logbook);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:1rem; font-weight:450; line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:var(--amber);color:var(--amber-ink)}
+a{color:inherit}
+img{max-width:100%}
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 clamp(20px,4vw,40px)}
+
+/* ---------- type scale ---------- */
+.display{
+  font-size:clamp(2.5rem, 1.5rem + 4vw, 4.4rem);
+  font-weight:800; line-height:1.05; letter-spacing:-0.03em;
+}
+.headline{
+  font-size:clamp(1.65rem, 1.25rem + 1.6vw, 2.5rem);
+  font-weight:700; line-height:1.14; letter-spacing:-0.02em;
+}
+.lede{font-size:clamp(1.05rem,1rem + .3vw,1.2rem);color:var(--ink-2);max-width:62ch;line-height:1.75}
+
+/* ---------- nav ---------- */
+.nav{
+  position:sticky;top:0;z-index:var(--z-nav);
+  background:color-mix(in oklab, var(--logbook) 86%, transparent);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--hairline);
+}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;text-decoration:none;letter-spacing:-0.01em}
+.brand img{width:34px;height:auto}
+.nav-links{display:flex;gap:4px;list-style:none;margin-left:auto}
+.nav-links a{
+  text-decoration:none;color:var(--ink-2);font-size:0.92rem;font-weight:500;
+  padding:7px 12px;border-radius:8px;transition:color .18s ease,background .18s ease;
+}
+.nav-links a:hover{color:var(--ink);background:var(--hairline)}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--sans);font-weight:650;font-size:0.95rem;letter-spacing:-0.005em;
+  padding:11px 20px;border-radius:8px;border:1px solid transparent;
+  text-decoration:none;cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,transform .18s cubic-bezier(.22,1,.36,1);
+}
+.btn-primary{background:var(--amber);color:var(--amber-ink)}
+.btn-primary:hover{background:var(--amber-strong);transform:translateY(-1px)}
+.btn-ghost{border-color:var(--hairline-strong);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--ink-3);background:var(--hairline)}
+.btn-sm{padding:8px 14px;font-size:0.88rem}
+@media (max-width:760px){ .nav-links{display:none} }
+
+/* ---------- hero ---------- */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--hairline)}
+#routeCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:.9}
+.hero-inner{position:relative;padding:clamp(72px,11vh,130px) 0 clamp(56px,8vh,96px)}
+.hero-stamp{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:0.72rem;letter-spacing:0.07em;color:var(--ink-2);
+  border:1px solid var(--hairline-strong);border-radius:999px;padding:6px 14px;
+  background:color-mix(in oklab, var(--logbook) 70%, transparent);
+}
+.hero-stamp .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.hero h1{margin:26px 0 20px;max-width:16ch}
+.hero h1 .route-word{color:var(--amber)}
+.hero .lede{margin-bottom:34px}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-cli-hint{font-family:var(--mono);font-size:0.82rem;color:var(--ink-3)}
+.hero-cli-hint b{color:var(--ink-2);font-weight:500}
+
+/* corridor board (departure-board rows) */
+.board{
+  margin-top:clamp(44px,7vh,72px);
+  border:1px solid var(--hairline-strong);border-radius:14px;overflow:hidden;
+  background:color-mix(in oklab, var(--manifest-deep) 82%, transparent);
+  backdrop-filter:blur(6px);
+}
+.board-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 18px;border-bottom:1px solid var(--hairline);
+  font-family:var(--mono);font-size:0.7rem;letter-spacing:0.1em;color:var(--ink-3);
+}
+.board-row{
+  display:grid;grid-template-columns:minmax(150px,1.2fr) 34px minmax(150px,1.2fr) auto;
+  gap:14px;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--hairline);
+  font-family:var(--mono);font-size:0.85rem;
+}
+.board-row:last-child{border-bottom:none}
+.board-row .from,.board-row .to{color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-row .arr{color:var(--amber);text-align:center}
+.board-status{justify-self:end;font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.st-verified{color:var(--green);background:var(--green-soft)}
+.st-building{color:var(--gold);background:oklch(78% 0.12 85 / 10%)}
+.st-planned{color:var(--ink-3);background:var(--hairline)}
+@media (max-width:640px){
+  .board-row{grid-template-columns:1fr 24px 1fr;font-size:0.76rem}
+  .board-status{display:none}
+}
+
+/* ---------- section scaffolding ---------- */
+section{padding:clamp(72px,11vh,128px) 0}
+.section-head{max-width:760px;margin-bottom:clamp(36px,5vh,56px)}
+.section-head .headline{margin-bottom:16px}
+.section-head p{color:var(--ink-2)}
+.section-head p b{color:var(--ink);font-weight:650}
+
+/* ---------- problem: the ledger ---------- */
+.ledger{border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.ledger-rows{border:1px solid var(--hairline-strong);border-radius:14px;overflow:hidden}
+.ledger-row{
+  display:grid;grid-template-columns:minmax(190px,0.85fr) 1.6fr;gap:clamp(16px,4vw,56px);
+  padding:clamp(22px,3.4vw,34px) clamp(18px,3vw,32px);
+  border-bottom:1px solid var(--hairline);
+  background:transparent;transition:background .25s ease;
+}
+.ledger-row:hover{background:var(--hairline)}
+.ledger-row:last-child{border-bottom:none}
+.ledger-row h3{font-size:1.12rem;font-weight:650;letter-spacing:-0.01em;line-height:1.35}
+.ledger-row .fig{font-family:var(--mono);font-size:0.75rem;color:var(--amber);display:block;margin-top:10px}
+.ledger-row p{color:var(--ink-2);font-size:0.98rem;max-width:60ch}
+.ledger-row p code{font-family:var(--mono);font-size:0.85em;background:var(--hairline);padding:1px 6px;border-radius:4px;color:var(--ink)}
+@media (max-width:680px){ .ledger-row{grid-template-columns:1fr;gap:10px} }
+
+/* ---------- terminal demo ---------- */
+.demo{background:var(--manifest-deep);border-bottom:1px solid var(--hairline)}
+.demo-shell{display:grid;grid-template-columns:216px 1fr;gap:22px;align-items:start}
+@media (max-width:880px){ .demo-shell{grid-template-columns:1fr} }
+
+.stage-rail{position:sticky;top:84px;display:flex;flex-direction:column;gap:6px}
+@media (max-width:880px){
+  .stage-rail{position:static;flex-direction:row;flex-wrap:wrap}
+}
+.stage-chip{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:0.74rem;letter-spacing:0.05em;
+  color:var(--ink-3);background:transparent;border:1px solid var(--hairline);
+  border-radius:8px;padding:10px 14px;cursor:pointer;text-align:left;
+  transition:color .2s ease,border-color .2s ease,background .2s ease;
+}
+.stage-chip .tick{width:14px;text-align:center;color:var(--ink-3)}
+.stage-chip:hover{border-color:var(--hairline-strong);color:var(--ink-2)}
+.stage-chip.active{color:var(--amber);border-color:var(--amber);background:var(--amber-soft)}
+.stage-chip.done{color:var(--ink-2)}
+.stage-chip.done .tick{color:var(--green)}
+.rail-note{font-family:var(--mono);font-size:0.68rem;color:var(--ink-3);padding:8px 2px;line-height:1.6}
+
+.term{
+  border:1px solid var(--hairline-strong);border-radius:14px;overflow:hidden;
+  background:var(--manifest);
+  box-shadow:0 24px 80px -32px oklch(0% 0 0 / 55%);
+}
+.term-bar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:1px solid var(--hairline);
+  background:var(--ledger);
+}
+.term-dots{display:flex;gap:6px}
+.term-dots i{width:11px;height:11px;border-radius:50%;background:var(--hairline-strong)}
+.term-title{font-family:var(--mono);font-size:0.74rem;color:var(--ink-3);letter-spacing:0.04em}
+.term-controls{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.corridor-toggle{display:flex;border:1px solid var(--hairline-strong);border-radius:8px;overflow:hidden}
+.corridor-toggle button{
+  font-family:var(--mono);font-size:0.68rem;letter-spacing:0.04em;
+  background:transparent;border:none;color:var(--ink-3);padding:7px 11px;cursor:pointer;
+  transition:background .18s ease,color .18s ease;
+}
+.corridor-toggle button.active{background:var(--amber);color:var(--amber-ink);font-weight:700}
+.term-btn{
+  font-family:var(--mono);font-size:0.68rem;letter-spacing:0.04em;
+  background:transparent;border:1px solid var(--hairline-strong);border-radius:8px;
+  color:var(--ink-2);padding:7px 11px;cursor:pointer;
+  transition:border-color .18s ease,color .18s ease;
+}
+.term-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.term-btn[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.term-body{
+  padding:18px 20px 24px;min-height:480px;max-height:560px;overflow-y:auto;overflow-x:auto;
+  font-family:var(--mono);font-size:0.8rem;line-height:1.75;
+  color:var(--ink-2);
+  scrollbar-width:thin;scrollbar-color:var(--hairline-strong) transparent;
+}
+.term-body::-webkit-scrollbar{width:8px}
+.term-body::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:4px}
+.term-body .ln{white-space:pre;display:block;min-width:max-content}
+.t-cmd{color:var(--ink)}
+.t-cmd::before{content:"$ ";color:var(--amber)}
+.t-ok{color:var(--green)}
+.t-warn{color:var(--gold)}
+.t-err{color:var(--red)}
+.t-dim{color:var(--ink-3)}
+.t-hd{color:var(--ink);font-weight:700}
+.t-amber{color:var(--amber)}
+.t-slate{color:var(--slate)}
+.t-sel{background:var(--amber-soft);color:var(--ink)}
+.cursor{display:inline-block;width:8px;height:15px;background:var(--amber);vertical-align:-2px;
+  animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){ .cursor{animation:none} }
+@media (max-width:600px){ .term-body{font-size:0.68rem;min-height:380px} }
+
+/* ---------- architecture: the hub ---------- */
+.hub-diagram{margin:0 auto;display:block;width:100%;max-width:900px;height:auto}
+.hub-caption{margin-top:26px;text-align:center;font-family:var(--mono);font-size:0.78rem;color:var(--ink-3)}
+.hub-caption b{color:var(--amber);font-weight:500}
+.arch-cols{
+  display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,32px);
+  margin-top:clamp(40px,6vh,64px);
+}
+@media (max-width:760px){ .arch-cols{grid-template-columns:1fr} }
+.arch-col{border:1px solid var(--hairline-strong);border-radius:14px;padding:clamp(22px,3vw,30px)}
+.arch-col.det{background:var(--slate-soft);border-color:oklch(68% 0.045 240 / 30%)}
+.arch-col.ai{background:var(--amber-soft);border-color:oklch(74% 0.14 55 / 30%)}
+.arch-col h3{font-size:1.05rem;font-weight:700;margin-bottom:6px}
+.arch-col .who{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;margin-bottom:14px;display:block}
+.arch-col.det .who{color:var(--slate)}
+.arch-col.ai .who{color:var(--amber)}
+.arch-col p{font-size:0.95rem;color:var(--ink-2)}
+.arch-col ul{list-style:none;margin-top:14px;display:grid;gap:8px}
+.arch-col li{font-size:0.92rem;color:var(--ink-2);padding-left:20px;position:relative}
+.arch-col li::before{content:"—";position:absolute;left:0;color:var(--ink-3)}
+
+/* ---------- pipeline (a true sequence) ---------- */
+.pipeline{background:var(--ledger);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.pipe-track{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--hairline-strong);border-radius:14px;overflow:hidden}
+@media (max-width:960px){ .pipe-track{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:600px){ .pipe-track{grid-template-columns:1fr} }
+.pipe-step{
+  padding:22px 18px 24px;border-right:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+  background:var(--logbook);
+}
+.pipe-step .n{font-family:var(--mono);font-size:0.7rem;color:var(--ink-3);display:block;margin-bottom:10px}
+.pipe-step h3{font-size:1rem;font-weight:700;margin-bottom:6px}
+.pipe-step p{font-size:0.85rem;color:var(--ink-2);line-height:1.55}
+.pipe-step .mode{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;margin-top:12px;display:inline-block;padding:3px 8px;border-radius:999px}
+.mode-det{color:var(--slate);background:var(--slate-soft)}
+.mode-ai{color:var(--amber);background:var(--amber-soft)}
+
+/* ---------- fidelity manifest ---------- */
+.manifest-table{border:1px solid var(--hairline-strong);border-radius:14px;overflow-x:auto}
+.manifest-table table{width:100%;border-collapse:collapse;min-width:680px}
+.manifest-table th{
+  font-family:var(--mono);font-size:0.68rem;font-weight:500;letter-spacing:0.1em;
+  color:var(--ink-3);text-align:left;padding:14px 18px;border-bottom:1px solid var(--hairline-strong);
+  background:var(--ledger);
+}
+.manifest-table td{padding:15px 18px;border-bottom:1px solid var(--hairline);font-size:0.92rem;vertical-align:top}
+.manifest-table tr:last-child td{border-bottom:none}
+.manifest-table td:first-child{font-weight:600;white-space:nowrap}
+.manifest-table td:nth-child(3){color:var(--ink-2);max-width:460px}
+.manifest-table tbody tr:hover td{background:var(--hairline)}
+.grade{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.06em;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.g-direct{color:var(--green);background:var(--green-soft)}
+.g-adapted{color:var(--slate);background:var(--slate-soft)}
+.g-bridged{color:var(--gold);background:oklch(78% 0.12 85 / 10%)}
+.g-surfaced{color:var(--ink-2);background:var(--hairline)}
+
+/* ---------- platform manifest ---------- */
+.plat-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--hairline-strong);border-radius:14px;overflow:hidden}
+@media (max-width:760px){ .plat-grid{grid-template-columns:1fr} }
+.plat-row{
+  display:grid;grid-template-columns:44px 1fr auto;gap:16px;align-items:center;
+  padding:16px 20px;border-bottom:1px solid var(--hairline);border-right:1px solid var(--hairline);
+  transition:background .25s ease;
+}
+.plat-row:hover{background:var(--hairline)}
+.plat-mark{
+  width:40px;height:40px;border-radius:8px;display:grid;place-items:center;
+  border:1px solid var(--hairline-strong);
+  font-family:var(--mono);font-size:0.8rem;font-weight:700;letter-spacing:0.02em;
+  color:var(--ink-3);background:var(--ledger);
+}
+.plat-row.live .plat-mark{color:var(--amber-ink);background:var(--amber);border-color:transparent}
+.plat-row h3{font-size:0.98rem;font-weight:650;letter-spacing:-0.005em;line-height:1.3}
+.plat-row .fmt{font-family:var(--mono);font-size:0.68rem;color:var(--ink-3);display:block;margin-top:3px}
+@media (max-width:520px){ .plat-row .fmt{display:none} }
+
+/* ---------- status ---------- */
+.status-rows{border-top:1px solid var(--hairline-strong)}
+.status-row{
+  display:grid;grid-template-columns:minmax(120px,0.5fr) 1.8fr auto;gap:clamp(14px,3vw,40px);
+  align-items:baseline;padding:20px 4px;border-bottom:1px solid var(--hairline);
+}
+.status-row .k{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.06em;color:var(--ink-3)}
+.status-row .v{color:var(--ink-2);font-size:0.96rem}
+.status-row .v b{color:var(--ink);font-weight:650}
+@media (max-width:640px){ .status-row{grid-template-columns:1fr;gap:6px} .status-row .board-status{justify-self:start} }
+
+/* ---------- CTA (the one committed surface) ---------- */
+.cta{background:var(--amber);color:var(--amber-ink);border-top:1px solid var(--hairline)}
+.cta .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:clamp(28px,5vw,64px);align-items:center}
+@media (max-width:820px){ .cta .wrap{grid-template-columns:1fr} }
+.cta h2{font-size:clamp(1.8rem,1.3rem + 2.4vw,3rem);font-weight:800;letter-spacing:-0.025em;line-height:1.08;margin-bottom:16px}
+.cta p{font-size:1.02rem;font-weight:500;opacity:.85;max-width:52ch}
+.cta-actions{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.btn-inverse{background:var(--amber-ink);color:var(--amber);font-weight:700;padding:14px 26px;font-size:1rem}
+.btn-inverse:hover{transform:translateY(-1px);background:oklch(13% 0.03 55)}
+.cta-cli{
+  font-family:var(--mono);font-size:0.82rem;font-weight:500;
+  background:oklch(18% 0.03 55 / 14%);border:1px solid oklch(18% 0.03 55 / 25%);
+  border-radius:8px;padding:10px 16px;cursor:pointer;color:var(--amber-ink);
+  transition:background .18s ease;
+}
+.cta-cli:hover{background:oklch(18% 0.03 55 / 22%)}
+
+/* ---------- footer ---------- */
+footer{background:var(--ledger);padding:44px 0 52px}
+footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+.foot-brand{display:flex;align-items:center;gap:10px;font-weight:700}
+.foot-brand img{width:30px}
+footer p{font-family:var(--mono);font-size:0.72rem;color:var(--ink-3);max-width:56ch;line-height:1.7}
+footer nav{display:flex;gap:18px}
+footer nav a{font-size:0.88rem;color:var(--ink-2);text-decoration:none}
+footer nav a:hover{color:var(--ink)}
+
+/* ---------- reveals (enhance-only; content visible by default) ---------- */
+.js .rv{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.js .rv.in{opacity:1;transform:none}
+.js .rv-d1{transition-delay:.08s}.js .rv-d2{transition-delay:.16s}.js .rv-d3{transition-delay:.24s}
+@media (prefers-reduced-motion:reduce){
+  .js .rv{opacity:1;transform:none;transition:none}
+}
+
+/* copy-toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:var(--manifest);border:1px solid var(--hairline-strong);border-radius:8px;
+  font-family:var(--mono);font-size:0.75rem;color:var(--ink);padding:10px 18px;
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:var(--z-toast);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
 </head>
 <body>
 
-  <div class="scroll-progress" aria-hidden="true"></div>
-  <div class="spotlight" aria-hidden="true"></div>
+<nav class="nav" aria-label="Main">
+  <div class="wrap">
+    <a href="#top" class="brand"><img src="assets/wheatear-mark-128.png" alt="" width="34" height="24" />Wheatear</a>
+    <ul class="nav-links">
+      <li><a href="#problem">The problem</a></li>
+      <li><a href="#demo">Watch a run</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#platforms">Platforms</a></li>
+      <li><a href="#status">Status</a></li>
+    </ul>
+    <a class="btn btn-primary btn-sm" href="https://github.com/akshay-eng/Wheatear" style="margin-left:auto">GitHub ↗</a>
+  </div>
+</nav>
 
-  <nav class="nav">
-    <div class="wrap">
-      <a href="#top" class="brand">
-        <img src="assets/wheatear-mark-128.png" alt="Wheatear" width="52" height="37" />
-        Wheatear
-      </a>
-      <ul class="nav-links">
-        <li><a href="#problem">Why</a></li>
-        <li><a href="#how">How it works</a></li>
-        <li><a href="#approach">Approach</a></li>
-        <li><a href="#platforms">Platforms</a></li>
-        <li><a href="https://github.com/akshay-eng/Wheatear">GitHub</a></li>
-      </ul>
-      <div class="nav-actions">
-        <a class="btn btn-primary btn-sm" href="https://github.com/akshay-eng/Wheatear">Star on GitHub</a>
-        <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <header class="hero">
+    <canvas id="routeCanvas" aria-hidden="true"></canvas>
+    <div class="wrap hero-inner">
+      <span class="hero-stamp rv"><span class="dot"></span> OPEN SOURCE · MIGRATION LOG NO. 001</span>
+      <h1 class="display rv rv-d1">Your agents shouldn't be <span class="route-word">grounded</span> on one platform.</h1>
+      <p class="lede rv rv-d2">
+        Wheatear is a migration engine for AI agents. It connects to Copilot Studio or watsonx
+        Orchestrate with your credentials, discovers every agent (tools, knowledge, collaborators)
+        and moves the whole workflow to the other platform. Deterministic where correctness matters.
+        AI only as a consented last mile.
+      </p>
+      <div class="hero-actions rv rv-d3">
+        <a class="btn btn-primary" href="#demo">Watch a real run ↓</a>
+        <a class="btn btn-ghost" href="https://github.com/akshay-eng/Wheatear">Read the source</a>
+        <span class="hero-cli-hint">or just&nbsp;<b>pip install → wheatear</b></span>
+      </div>
+
+      <div class="board rv" aria-label="Migration corridors">
+        <div class="board-head"><span>CORRIDOR</span><span>STATUS</span></div>
+        <div class="board-row">
+          <span class="from">MS COPILOT STUDIO</span><span class="arr">⇄</span><span class="to">WATSONX ORCHESTRATE</span>
+          <span class="board-status st-verified">VERIFIED · BOTH DIRECTIONS</span>
+        </div>
+        <div class="board-row">
+          <span class="from">VERTEX AI · AGENTCORE</span><span class="arr">⇄</span><span class="to">CANONICAL IR</span>
+          <span class="board-status st-building">BUILDING</span>
+        </div>
+        <div class="board-row">
+          <span class="from">SERVICENOW · AGENTFORCE</span><span class="arr">⇄</span><span class="to">CANONICAL IR</span>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="board-row">
+          <span class="from">N8N · OPENAI · ZAPIER · DIFY</span><span class="arr">⇄</span><span class="to"><a href="#platforms" style="color:inherit;text-decoration:none">FULL MANIFEST ↓</a></span>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
       </div>
     </div>
-  </nav>
+  </header>
 
-  <main id="top">
-    <!-- Hero -->
-    <header class="hero">
-      <img class="hero-mark" src="assets/wheatear-mark.png" alt="" aria-hidden="true" />
-      <div class="wrap">
-        <div class="telemetry intro intro-3" aria-hidden="true">
-          <div class="telemetry-row"><span>Status</span><strong class="flap-text">Active</strong></div>
-          <div class="telemetry-row"><span>Mode</span><strong class="flap-text">Any ⇄ Any</strong></div>
-          <div class="telemetry-row"><span>Stages</span><strong class="flap-text">5</strong></div>
-          <div class="telemetry-row"><span>Log</span><strong class="flap-text">No. 001</strong></div>
-        </div>
-        <span class="stamp intro intro-1">Migration log <strong>NO. 001</strong> · open-source · any framework, either direction</span>
-        <h1 class="intro intro-2">Move your AI agents anywhere.<br>Stop rebuilding them every time a vendor changes.</h1>
-        <p class="hero-sub intro intro-3">
-          Wheatear converts agents and workflows between any of the major orchestration platforms,
-          including Copilot Studio, watsonx Orchestrate, OpenAI, Vertex AI, Bedrock AgentCore, and n8n,
-          in either direction. A platform switch becomes a migration, not a rewrite.
-        </p>
-        <div class="hero-actions intro intro-4">
-          <a class="btn btn-primary" href="https://github.com/akshay-eng/Wheatear">View on GitHub</a>
-          <a class="btn btn-ghost" href="#approach">See how it works</a>
-        </div>
-
-        <div class="route intro intro-5">
-          <svg class="route-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-            <path id="routePathDef" class="route-path" d="M 90 150 C 280 70, 360 70, 500 110 C 640 150, 720 70, 910 70" />
-            <circle class="route-node" cx="90" cy="150" r="5"></circle>
-            <circle class="route-ping" cx="500" cy="110" r="14"></circle>
-            <circle class="route-node core" cx="500" cy="110" r="9"></circle>
-            <circle class="route-node" cx="910" cy="70" r="5"></circle>
-            <circle class="route-marker" r="4">
-              <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#routePathDef"></mpath>
-              </animateMotion>
-            </circle>
-          </svg>
-          <div class="route-row">
-            <div class="route-col">
-              <span class="route-label">From</span>
-              <span class="waypoint">Copilot Studio</span>
-              <span class="waypoint">n8n</span>
-              <span class="waypoint">Vertex AI</span>
-            </div>
-            <div class="route-core">
-              <div class="core-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#E2924B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path d="M12 2v5M12 17v5M2 12h5M17 12h5M4.9 4.9l3.5 3.5M15.6 15.6l3.5 3.5M19.1 4.9l-3.5 3.5M8.4 15.6l-3.5 3.5"></path>
-                </svg>
-              </div>
-              <span>CANONICAL IR</span>
-              <span class="route-bidir">⇄ either direction</span>
-            </div>
-            <div class="route-col right">
-              <span class="route-label">To</span>
-              <span class="waypoint">watsonx Orchestrate</span>
-              <span class="waypoint">AgentCore</span>
-              <span class="waypoint">OpenAI</span>
-            </div>
-          </div>
-        </div>
-        <p class="route-caption intro intro-5">
-          Modeled on the <span class="count-up" data-target="14500">0</span><span class="unit">km</span> the Northern Wheatear flies every year: the longest migration of any songbird, relative to body size.
-        </p>
+  <!-- ================= PROBLEM ================= -->
+  <section id="problem" class="ledger">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">Switching platforms means rebuilding everything by hand. That's not a migration — that's lock-in doing its job.</h2>
+        <p>Every orchestration platform speaks its own dialect. The moment your agents matter,
+           the cost of leaving becomes the reason you can't. Three gaps do most of the damage:</p>
       </div>
-    </header>
-
-    <!-- Problem (manifest entries, not a card grid) -->
-    <section id="problem">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <h2>Agent platform fragmentation is already a real cost, not a future one</h2>
-          <p>Enterprises run production agents on more orchestrators than they admit to. Every M&A deal, vendor renegotiation, or platform sunset turns into a from-scratch rebuild, paid for in consulting hours, not software.</p>
-        </div>
-        <div class="manifest">
-          <div class="manifest-entry reveal">
-            <span class="manifest-index">E&#8209;01</span>
-            <div>
-              <h3>Vendor lock-in is structural</h3>
-              <p>Dialog graphs, instruction-based agents, and visual flows aren't variants of each other. They're different paradigms. Leaving a platform means losing the logic, not just the syntax.</p>
-            </div>
-          </div>
-          <div class="manifest-entry reveal">
-            <span class="manifest-index">E&#8209;02</span>
-            <div>
-              <h3>The forcing functions are now</h3>
-              <p>Acquisitions inherit a different stack. Vendor relationships shift. Pricing and roadmaps change. None of this waits for a "someday" migration plan.</p>
-            </div>
-          </div>
-          <div class="manifest-entry reveal">
-            <span class="manifest-index">E&#8209;03</span>
-            <div>
-              <h3>Migrations today are manual</h3>
-              <p>Systems integrators rebuild agents by hand, topic by topic. It's slow, inconsistent, and the knowledge of how the original agent actually behaved walks out the door with whoever built it.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- How it works (numbered sequence, legitimate use) -->
-    <section id="how" class="section-band">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <h2>One pipeline. A clear line between what's deterministic and what needs AI.</h2>
-          <p>Every migration runs through the same five stages. Mechanical work stays mechanical and auditable; behavioral translation gets AI assistance inside a schema-validated box.</p>
-        </div>
-        <div class="timeline">
-          <div class="timeline-track">
-            <div class="stage reveal">
-              <span class="stage-num">01</span>
-              <h4>Extract</h4>
-              <p>Pull the source agent using the platform's own export mechanism: <code>pac copilot clone</code>, ADK export, or equivalent.</p>
-              <span class="stage-tag tag-deterministic">Deterministic</span>
-            </div>
-            <div class="stage reveal">
-              <span class="stage-num">02</span>
-              <h4>Normalize</h4>
-              <p>Parse the raw export into Wheatear's canonical IR: one schema for agents, tools, triggers, knowledge, and connections.</p>
-              <span class="stage-tag tag-deterministic">Deterministic</span>
-            </div>
-            <div class="stage reveal">
-              <span class="stage-num">03</span>
-              <h4>Map</h4>
-              <p>Convert tool schemas, connections, credentials, and knowledge sources with explicit, testable field mappings.</p>
-              <span class="stage-tag tag-deterministic">Deterministic</span>
-            </div>
-            <div class="stage reveal">
-              <span class="stage-num">04</span>
-              <h4>Translate</h4>
-              <p>Turn dialog graphs and conditional flows into agent instructions and tool-use guidance, where intent has to be understood, not just copied.</p>
-              <span class="stage-tag tag-ai">AI-assisted</span>
-            </div>
-            <div class="stage reveal">
-              <span class="stage-num">05</span>
-              <h4>Validate</h4>
-              <p>Schema-check the generated spec, run eval cases derived from the original flows, and route low-confidence output to a human reviewer.</p>
-              <span class="stage-tag tag-hybrid">Hybrid + review gate</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Approach -->
-    <section id="approach">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <h2>Deterministic where it must be correct. AI where it must understand intent.</h2>
-          <p>An LLM should never freely reinterpret a credential or a tool schema. It should be the thing that reads a fifteen-branch dialog tree and figures out what the agent was actually trying to do.</p>
-        </div>
-        <div class="split">
-          <div class="split-card deterministic reveal">
-            <span class="label">Deterministic</span>
-            <h3>Reproducible, auditable, no guessing</h3>
-            <ul>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Tool and function schema conversion</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Connection, auth, and credential references</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Knowledge base and environment variable mapping</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Target schema scaffolding and validation</li>
-            </ul>
-          </div>
-          <div class="split-card ai reveal">
-            <span class="label">AI-assisted</span>
-            <h3>Semantic translation, boxed in by validation</h3>
-            <ul>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Dialog graph → agent instructions</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Multi-topic bots → agent + collaborators</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Confidence scoring on ambiguous conversions</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Behavioral parity checks against the original flow</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- IR terminal / data visualization -->
-    <section id="ir" class="section-band">
-      <div class="wrap terminal-wrap">
-        <div class="terminal-copy reveal">
-          <h2>One canonical IR. Every platform reads and writes the same shape.</h2>
-          <p>Every importer normalizes into this schema; every exporter reads from it. Adding a platform costs two connectors, not a translator for every pair already supported.</p>
-          <p>Mechanical fields, like tools, connections, and knowledge sources, map straight through. Behavioral fields are where the AI-assisted translation step does its work.</p>
-        </div>
-        <div class="terminal reveal">
-          <div class="terminal-bar">
-            <span class="dot dot-slate"></span>
-            <span class="dot dot-gold"></span>
-            <span class="dot dot-amber"></span>
-            <span class="terminal-tab">agent.ir.yaml</span>
-          </div>
-          <pre class="terminal-body"><span class="c"># normalized from Copilot Studio export</span>
-<span class="k">spec_version:</span> <span class="s">wheatear/v1</span>
-<span class="k">name:</span> <span class="s">support_router</span>
-<span class="k">source:</span> <span class="r">copilot-studio</span>
-<span class="k">instructions:</span> <span class="s">|</span>
-  <span class="s">Route support requests to the right</span>
-  <span class="s">team based on issue category and</span>
-  <span class="s">customer tier.</span>
-<span class="k">tools:</span>
-  <span class="k">- ref:</span> <span class="s">lookup_ticket</span>
-    <span class="k">confidence:</span> <span class="r">0.97</span>
-<span class="k">knowledge:</span>
-  <span class="k">- ref:</span> <span class="s">kb_support_docs</span>
-<span class="k">review_required:</span> <span class="r">false</span></pre>
-        </div>
-      </div>
-    </section>
-
-    <!-- Platforms (manifest list, log rows not cards) -->
-    <section id="platforms">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <h2>Platform manifest</h2>
-          <p>Every connector reads from and writes to the canonical IR above, so migration runs in either direction between any two platforms in the manifest below.</p>
-        </div>
-        <div class="manifest-list">
-          <div class="log-row reveal"><span class="log-name">Microsoft Copilot Studio</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">IBM watsonx Orchestrate</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">OpenAI Agents SDK</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">Anthropic Claude SDK</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">Google Vertex AI Agent Builder</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">AWS Bedrock AgentCore</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">n8n</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-          <div class="log-row reveal"><span class="log-name">Microsoft Semantic Kernel</span><span class="status-dot status-supported flap-text">⇄ Two-way</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA: the one committed-color surface -->
-    <section>
-      <div class="wrap">
-        <div class="cta reveal">
+      <div class="ledger-rows">
+        <div class="ledger-row rv">
           <div>
-            <h2>Pick any two platforms. Wheatear moves the agent between them.</h2>
-            <p>Built around one canonical IR, every connector above works in either direction. Follow the project, file an issue with a migration scenario you care about, or contribute a connector.</p>
+            <h3>The connector gap</h3>
+            <span class="fig">1,400+ connectors vs. bring-your-own</span>
           </div>
-          <div class="cta-actions">
-            <a class="btn btn-primary" href="https://github.com/akshay-eng/Wheatear">Follow on GitHub</a>
-            <a class="btn btn-ghost" href="https://github.com/akshay-eng/Wheatear/issues">Suggest a platform</a>
+          <p>Copilot Studio ships prebuilt connectors for ServiceNow, Jira, Salesforce, SAP.
+             Orchestrate expects MCP servers and OpenAPI specs. Your agent's tools don't
+             translate by copy-paste. The exception: tools that were MCP all along.
+             Wheatear detects those and re-points the endpoint: <code>bridge: native_mcp</code>,
+             zero rebuild. Everything else becomes a named, actionable task, never a silent loss.</p>
+        </div>
+        <div class="ledger-row rv">
+          <div>
+            <h3>The format gap</h3>
+            <span class="fig">Dataverse solution XML vs. ADK YAML</span>
           </div>
+          <p>One side exports a zip of Dataverse XML: topics, GPT components, bot manifests.
+             The other wants <code>agent.yaml</code> with instructions, guidelines, and collaborator
+             lists. Wheatear parses both real export shapes (calibrated against actual production
+             exports, not documentation) and round-trips them through one canonical IR.</p>
+        </div>
+        <div class="ledger-row rv">
+          <div>
+            <h3>The knowledge gap</h3>
+            <span class="fig">Live SaaS indexes vs. vector stores</span>
+          </div>
+          <p>A SharePoint knowledge source has no equivalent on a platform that expects Milvus or
+             Elasticsearch. Pretending otherwise ships a broken agent. Wheatear emits a re-ingestion
+             plan per source: <code>reindex_vector</code>, <code>upload</code>, or
+             <code>custom_service</code> — so a human closes the gap deliberately, once.</p>
         </div>
       </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="wrap">
-      <div class="footer-brand">
-        <img src="assets/wheatear-mark-64.png" alt="Wheatear" width="36" height="26" />
-        <p class="footer-note">
-          NAMESAKE: Northern Wheatear (Oenanthe oenanthe). Alaska to East Africa, about 14,500 km.
-          The longest migration relative to body size of any songbird on Earth.
-        </p>
-      </div>
-      <ul class="footer-links">
-        <li><a href="https://github.com/akshay-eng/Wheatear">GitHub</a></li>
-        <li><a href="https://github.com/akshay-eng/Wheatear/issues">Issues</a></li>
-        <li><a href="https://github.com/akshay-eng/Wheatear/blob/main/LICENSE">License</a></li>
-      </ul>
     </div>
-  </footer>
+  </section>
 
-  <script src="assets/js/main.js"></script>
+  <!-- ================= DEMO ================= -->
+  <section id="demo" class="demo">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">This is the actual run.</h2>
+        <p>Not a mockup. This replays the real wizard, message for message: credential connect,
+           agent discovery, the collaborator-graph pull, the deterministic transform, and the push.
+           <b>Click a stage to jump. Switch the corridor for the reverse direction.</b></p>
+      </div>
+
+      <div class="demo-shell">
+        <div class="stage-rail" aria-label="Pipeline stages">
+          <button class="stage-chip" data-stage="0"><span class="tick">○</span>CONNECT</button>
+          <button class="stage-chip" data-stage="1"><span class="tick">○</span>DISCOVER</button>
+          <button class="stage-chip" data-stage="2"><span class="tick">○</span>SELECT + GRAPH</button>
+          <button class="stage-chip" data-stage="3"><span class="tick">○</span>TRANSFORM</button>
+          <button class="stage-chip" data-stage="4"><span class="tick">○</span>REVIEW</button>
+          <button class="stage-chip" data-stage="5"><span class="tick">○</span>PUSH</button>
+          <span class="rail-note">deterministic end-to-end.<br>AI is asked before it touches anything.</span>
+        </div>
+
+        <div class="term">
+          <div class="term-bar">
+            <div class="term-dots"><i></i><i></i><i></i></div>
+            <span class="term-title" id="termTitle">wheatear — auto migration</span>
+            <div class="term-controls">
+              <div class="corridor-toggle" role="group" aria-label="Corridor">
+                <button id="dirA" class="active">WXO → COPILOT</button>
+                <button id="dirB">COPILOT → WXO</button>
+              </div>
+              <button class="term-btn" id="speedBtn" aria-pressed="false">2×</button>
+              <button class="term-btn" id="replayBtn">↺ REPLAY</button>
+            </div>
+          </div>
+          <div class="term-body" id="termBody"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ARCHITECTURE ================= -->
+  <section id="architecture">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">One canonical IR. Not a translator for every pair.</h2>
+        <p>Every importer produces the same intermediate representation; every exporter consumes it.
+           Adding a platform costs one importer and one exporter: <b>2N connectors, never
+           N&sup2; translators</b>. The reverse of any corridor comes free.</p>
+      </div>
+
+      <svg class="hub-diagram rv" viewBox="0 0 900 340" fill="none" role="img" aria-label="Hub-and-spoke architecture: platform importers feed a canonical IR, exporters write to target platforms">
+        <defs>
+          <marker id="mArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" fill="oklch(58% 0.018 70)"/>
+          </marker>
+        </defs>
+        <g font-family="JetBrains Mono, monospace" font-size="12">
+          <rect x="20" y="52"  width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 14%)" fill="oklch(20% 0.014 55)"/>
+          <text x="118" y="74" text-anchor="middle" fill="oklch(96% 0.012 80)">Copilot Studio</text>
+          <text x="118" y="92" text-anchor="middle" fill="oklch(58% 0.018 70)" font-size="10">solution XML · topics · GPT</text>
+
+          <rect x="20" y="144" width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 14%)" fill="oklch(20% 0.014 55)"/>
+          <text x="118" y="166" text-anchor="middle" fill="oklch(96% 0.012 80)">watsonx Orchestrate</text>
+          <text x="118" y="184" text-anchor="middle" fill="oklch(58% 0.018 70)" font-size="10">ADK YAML · toolkits · MCP</text>
+
+          <rect x="20" y="236" width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 8%)" fill="none" stroke-dasharray="4 4"/>
+          <text x="118" y="258" text-anchor="middle" fill="oklch(58% 0.018 70)">Vertex · ServiceNow · n8n…</text>
+          <text x="118" y="276" text-anchor="middle" fill="oklch(58% 0.018 70 / .6)" font-size="10">one importer each</text>
+        </g>
+
+        <g>
+          <rect x="360" y="96" width="180" height="148" rx="12" stroke="oklch(74% 0.14 55)" stroke-width="1.5" fill="oklch(74% 0.14 55 / 7%)"/>
+          <text x="450" y="128" text-anchor="middle" fill="oklch(80% 0.13 55)" font-family="Archivo, sans-serif" font-weight="700" font-size="17">Canonical IR</text>
+          <g font-family="JetBrains Mono, monospace" font-size="10.5" fill="oklch(76% 0.02 70)">
+            <text x="378" y="154">instructions · guidelines</text>
+            <text x="378" y="172">tools · mcp endpoints</text>
+            <text x="378" y="190">knowledge · ingest plans</text>
+            <text x="378" y="208">collaborator graph</text>
+            <text x="378" y="226">review flags · fidelity</text>
+          </g>
+        </g>
+
+        <g font-family="JetBrains Mono, monospace" font-size="12">
+          <rect x="684" y="52" width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 14%)" fill="oklch(20% 0.014 55)"/>
+          <text x="782" y="74" text-anchor="middle" fill="oklch(96% 0.012 80)">watsonx Orchestrate</text>
+          <text x="782" y="92" text-anchor="middle" fill="oklch(58% 0.018 70)" font-size="10">agent.yaml + deploy</text>
+
+          <rect x="684" y="144" width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 14%)" fill="oklch(20% 0.014 55)"/>
+          <text x="782" y="166" text-anchor="middle" fill="oklch(96% 0.012 80)">Copilot Studio</text>
+          <text x="782" y="184" text-anchor="middle" fill="oklch(58% 0.018 70)" font-size="10">solution zip + pac import</text>
+
+          <rect x="684" y="236" width="196" height="52" rx="9" stroke="oklch(100% 0 0 / 8%)" fill="none" stroke-dasharray="4 4"/>
+          <text x="782" y="258" text-anchor="middle" fill="oklch(58% 0.018 70)">Agentforce · Zapier · Dify…</text>
+          <text x="782" y="276" text-anchor="middle" fill="oklch(58% 0.018 70 / .6)" font-size="10">one exporter each</text>
+        </g>
+
+        <g stroke="oklch(58% 0.018 70)" stroke-width="1.2" marker-end="url(#mArrow)">
+          <path id="f1" d="M216 78 C 300 78, 300 130, 360 138"/>
+          <path id="f2" d="M216 170 C 290 170, 300 170, 360 170"/>
+          <path id="f3" d="M540 138 C 610 130, 610 78, 684 78"/>
+          <path id="f4" d="M540 170 C 610 170, 620 170, 684 170"/>
+        </g>
+        <g class="packets">
+          <circle r="3.2" fill="oklch(74% 0.14 55)"><animateMotion dur="3.2s" repeatCount="indefinite"><mpath href="#f1"/></animateMotion></circle>
+          <circle r="3.2" fill="oklch(74% 0.14 55)"><animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite"><mpath href="#f2"/></animateMotion></circle>
+          <circle r="3.2" fill="oklch(74% 0.14 55)"><animateMotion dur="3.2s" begin="1.7s" repeatCount="indefinite"><mpath href="#f3"/></animateMotion></circle>
+          <circle r="3.2" fill="oklch(74% 0.14 55)"><animateMotion dur="3.2s" begin="0.5s" repeatCount="indefinite"><mpath href="#f4"/></animateMotion></circle>
+        </g>
+      </svg>
+      <p class="hub-caption rv">agents flow through the hub in <b>either direction</b>: the same IR that reads a Copilot export writes one</p>
+
+      <div class="arch-cols">
+        <div class="arch-col det rv">
+          <h3>Deterministic core</h3>
+          <span class="who">NO MODEL · AUDITABLE · REPEATABLE</span>
+          <p>Everything touching schemas, credentials, endpoints, or structure is pure field
+             mapping. Run it twice, get the same bytes.</p>
+          <ul>
+            <li>Export parsing: both real Copilot shapes, three Orchestrate shapes</li>
+            <li>Instructions carried over verbatim, lossless for generative agents</li>
+            <li>MCP endpoints re-pointed, models tier-mapped, guidelines restructured</li>
+            <li>Solution XML / agent YAML generation + deploy</li>
+          </ul>
+        </div>
+        <div class="arch-col ai rv rv-d1">
+          <h3>AI last mile — opt-in</h3>
+          <span class="who">ASKS FIRST · NEVER LOAD-BEARING</span>
+          <p>The model is reserved for judgment calls, and it asks before touching anything:</p>
+          <ul>
+            <li>Adapting prose instructions to the target platform's idiom</li>
+            <li>Repairing a rejected import: you see the error, you approve the fix</li>
+            <li>Decomposing dialog-tree logic into structured guidelines</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PIPELINE ================= -->
+  <section class="pipeline">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">Six stages. One honest contract.</h2>
+        <p>Every agent moves through the same pipeline. Anything a stage can't map with confidence
+           is flagged for review, surfaced in a work plan, never silently dropped.</p>
+      </div>
+      <div class="pipe-track rv">
+        <div class="pipe-step"><span class="n">1</span><h3>Normalize</h3><p>Platform export → canonical IR. Topics, prompts, toolkits, knowledge, collaborators.</p><span class="mode mode-det">DETERMINISTIC</span></div>
+        <div class="pipe-step"><span class="n">2</span><h3>Map</h3><p>Resolve tools + knowledge for the target. MCP re-points; gaps become named tasks.</p><span class="mode mode-det">DETERMINISTIC</span></div>
+        <div class="pipe-step"><span class="n">3</span><h3>Translate</h3><p>Instructions carry verbatim by default. The model adapts prose only if you enable it.</p><span class="mode mode-ai">AI · OPT-IN</span></div>
+        <div class="pipe-step"><span class="n">4</span><h3>Validate</h3><p>Schema checks plus eval cases generated from source behavior.</p><span class="mode mode-det">DETERMINISTIC</span></div>
+        <div class="pipe-step"><span class="n">5</span><h3>Export</h3><p>Write the native artifact: solution zip for Copilot, agent.yaml for Orchestrate.</p><span class="mode mode-det">DETERMINISTIC</span></div>
+        <div class="pipe-step"><span class="n">6</span><h3>Deploy</h3><p>pac solution import / orchestrate agents import, straight into your instance.</p><span class="mode mode-det">DETERMINISTIC</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FIDELITY ================= -->
+  <section id="fidelity">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">What survives the crossing — precisely.</h2>
+        <p>A migration tool that hides its losses is a liability. This is the fidelity contract,
+           row by row, from the field-level mapping matrix the engine actually runs on.</p>
+      </div>
+      <div class="manifest-table rv">
+        <table>
+          <thead><tr><th>ARTIFACT</th><th>FIDELITY</th><th>HOW</th></tr></thead>
+          <tbody>
+            <tr><td>System prompt</td><td><span class="grade g-direct">DIRECT</span></td><td>Carried verbatim. For generative agents this <em>is</em> the behavior; it moves losslessly.</td></tr>
+            <tr><td>MCP tools</td><td><span class="grade g-direct">DIRECT</span></td><td>Both platforms speak MCP. Server URL, transport, and every member tool carry over: you re-register one endpoint instead of rebuilding 25 tools.</td></tr>
+            <tr><td>Guidelines</td><td><span class="grade g-adapted">ADAPTED</span></td><td>Orchestrate's Condition→Action rules fold into Copilot instructions, and Copilot topic logic can become structured guidelines. It arrives <em>better organized</em> than it left.</td></tr>
+            <tr><td>Model choice</td><td><span class="grade g-adapted">ADAPTED</span></td><td>No 1:1 model exists across platforms. Tier-mapped (frontier / mid / small) and always flagged for human confirmation.</td></tr>
+            <tr><td>Welcome + starters</td><td><span class="grade g-direct">DIRECT</span></td><td>Conversation-start message and starter prompts map field-for-field.</td></tr>
+            <tr><td>Collaborator graph</td><td><span class="grade g-adapted">ADAPTED</span></td><td>Connected agents are auto-discovered and migrated leaf-first, so every reference resolves on arrival.</td></tr>
+            <tr><td>SaaS knowledge</td><td><span class="grade g-bridged">BRIDGED</span></td><td>SharePoint / Dataverse sources get an explicit re-ingestion plan into Milvus / Elasticsearch. Content moves once, deliberately.</td></tr>
+            <tr><td>Channels · Work IQ</td><td><span class="grade g-surfaced">SURFACED</span></td><td>No equivalent exists. Listed in the review manifest with next steps, never silently dropped.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PLATFORM MANIFEST ================= -->
+  <section id="platforms" class="pipeline">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">The manifest: every platform is one importer away.</h2>
+        <p>The hub architecture means each new platform needs one importer and one exporter,
+           not a translator for every pair. This is the boarding list, with honest statuses:
+           <b>verified</b> ran against real production exports; <b>building</b> has code in the
+           corridor; <b>planned</b> is scoped on the roadmap.</p>
+      </div>
+      <div class="plat-grid rv">
+        <div class="plat-row live">
+          <span class="plat-mark">CS</span>
+          <h3>Microsoft Copilot Studio<span class="fmt">Dataverse solution XML · 1,400+ connectors · topics</span></h3>
+          <span class="board-status st-verified">VERIFIED</span>
+        </div>
+        <div class="plat-row live">
+          <span class="plat-mark">WX</span>
+          <h3>IBM watsonx Orchestrate<span class="fmt">ADK YAML · MCP toolkits · guidelines</span></h3>
+          <span class="board-status st-verified">VERIFIED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">VA</span>
+          <h3>Google Vertex AI Agent Builder<span class="fmt">agent + tool schemas · Playbooks</span></h3>
+          <span class="board-status st-building">BUILDING</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">AC</span>
+          <h3>AWS Bedrock AgentCore<span class="fmt">action groups · knowledge bases</span></h3>
+          <span class="board-status st-building">BUILDING</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">SN</span>
+          <h3>ServiceNow AI Agents<span class="fmt">Agent Builder · Now Assist skills</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">AF</span>
+          <h3>Salesforce Agentforce<span class="fmt">topics · actions · Atlas reasoning</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">N8</span>
+          <h3>n8n<span class="fmt">workflow JSON · AI agent nodes</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">OA</span>
+          <h3>OpenAI Agent Builder<span class="fmt">Agents SDK · AgentKit</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">ZP</span>
+          <h3>Zapier Agents<span class="fmt">8,000+ app actions · behaviors</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+        <div class="plat-row">
+          <span class="plat-mark">DF</span>
+          <h3>Dify<span class="fmt">app DSL · workflow + agent modes</span></h3>
+          <span class="board-status st-planned">PLANNED</span>
+        </div>
+      </div>
+      <p class="hub-caption rv">running one of these and want your corridor sooner?
+        <a href="https://github.com/akshay-eng/Wheatear/issues" style="color:var(--amber)">open an issue with a sample export</a>. real exports are how corridors get calibrated</p>
+    </div>
+  </section>
+
+  <!-- ================= STATUS ================= -->
+  <section id="status">
+    <div class="wrap">
+      <div class="section-head rv">
+        <h2 class="headline">Where the project actually is.</h2>
+        <p>Pre-v1, and honest about it. Everything marked verified has run against real
+           production exports — not synthetic fixtures.</p>
+      </div>
+      <div class="status-rows rv">
+        <div class="status-row"><span class="k">CORRIDORS</span><span class="v"><b>Copilot Studio ⇄ watsonx Orchestrate</b>, both directions, verified end-to-end against real agent exports</span><span class="board-status st-verified">VERIFIED</span></div>
+        <div class="status-row"><span class="k">DISCOVERY</span><span class="v">Credential-based auto-discovery on both platforms · collaborator graphs pulled in automatically, migrated leaf-first</span><span class="board-status st-verified">VERIFIED</span></div>
+        <div class="status-row"><span class="k">DEPLOY</span><span class="v">Push to Orchestrate via ADK · push to Copilot Studio via pac solution import, with consented AI repair on rejection</span><span class="board-status st-verified">VERIFIED</span></div>
+        <div class="status-row"><span class="k">TEST SUITE</span><span class="v"><b>140+ automated tests</b>: round-trips, multi-agent ordering, fidelity guards, failure paths</span><span class="board-status st-verified">GREEN</span></div>
+        <div class="status-row"><span class="k">NEXT</span><span class="v">Connector catalog (Tier-1 OpenAPI auto-conversion + curated MCP registry) · Vertex AI + AgentCore importers</span><span class="board-status st-building">BUILDING</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CTA ================= -->
+  <section class="cta">
+    <div class="wrap">
+      <div class="rv">
+        <h2>The exit door is open source.</h2>
+        <p>Star the repo, run a migration against your own instance, and file what breaks.
+           Every corridor here was calibrated on a real export somebody shared.</p>
+      </div>
+      <div class="cta-actions rv rv-d1">
+        <a class="btn btn-inverse" href="https://github.com/akshay-eng/Wheatear">Star on GitHub ↗</a>
+        <button class="cta-cli" id="copyCli" title="Copy install command">$ pip install -e . &amp;&amp; wheatear&nbsp;&nbsp;⧉</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="foot-brand"><img src="assets/wheatear-mark-128.png" alt="" width="30" height="21" />Wheatear</div>
+      <p style="margin-top:12px">Named for the Northern Wheatear — 25 grams, Alaska to East Africa,<br/>~14,500 km. The longest migration of any songbird, relative to size.</p>
+    </div>
+    <nav aria-label="Footer">
+      <a href="#problem">Problem</a>
+      <a href="#demo">Demo</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/akshay-eng/Wheatear">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<div class="toast" id="toast">copied to clipboard</div>
+
+<script>
+(function(){
+"use strict";
+document.documentElement.classList.add('js');
+var REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============ scroll reveals (enhance-only) ============ */
+var revealEls = document.querySelectorAll('.rv');
+if(!REDUCED && 'IntersectionObserver' in window){
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  },{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
+  revealEls.forEach(function(el){ io.observe(el); });
+}else{
+  revealEls.forEach(function(el){ el.classList.add('in'); });
+}
+
+/* ============ hero route canvas ============ */
+(function(){
+  var canvas = document.getElementById('routeCanvas');
+  if(!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2);
+  var t0 = performance.now();
+
+  function resize(){
+    var r = canvas.parentElement.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize(); window.addEventListener('resize', resize);
+
+  function routePoint(u){
+    var x = W*(-0.02 + u*1.06);
+    var y = H*0.30 + Math.sin(u*Math.PI)*(-H*0.16) + Math.sin(u*6.2)*H*0.008;
+    return [x,y];
+  }
+  var WAYPOINTS = [0.06,0.22,0.40,0.58,0.76,0.94];
+
+  function draw(now){
+    ctx.clearRect(0,0,W,H);
+    var t=(now-t0)/1000;
+
+    ctx.strokeStyle='rgba(255,255,255,0.035)'; ctx.lineWidth=1;
+    for(var gx=0; gx<=8; gx++){
+      var x = W*gx/8;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    for(var gy=0; gy<=4; gy++){
+      var y = H*gy/4;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    ctx.strokeStyle='rgba(255,255,255,0.10)';
+    ctx.setLineDash([2,7]); ctx.lineWidth=1.4;
+    ctx.beginPath();
+    for(var i=0;i<=100;i++){ var p=routePoint(i/100); i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    var u = REDUCED ? 0.72 : ((t*0.045)%1.15);
+    var head = Math.min(u,1);
+
+    ctx.lineWidth=1.8;
+    ctx.beginPath();
+    var trailStart = Math.max(0, head-0.28);
+    for(var j=0;j<=60;j++){
+      var uu = trailStart + (head-trailStart)*j/60;
+      var pp = routePoint(uu);
+      j?ctx.lineTo(pp[0],pp[1]):ctx.moveTo(pp[0],pp[1]);
+    }
+    var hp = routePoint(head), tp = routePoint(trailStart);
+    var grad = ctx.createLinearGradient(tp[0],tp[1],hp[0],hp[1]);
+    grad.addColorStop(0,'rgba(238,178,105,0)');
+    grad.addColorStop(1,'rgba(238,178,105,0.85)');
+    ctx.strokeStyle=grad; ctx.stroke();
+
+    WAYPOINTS.forEach(function(w){
+      var p = routePoint(w);
+      var passed = w <= head;
+      ctx.beginPath(); ctx.arc(p[0],p[1], passed?2.6:2, 0, Math.PI*2);
+      ctx.fillStyle = passed ? 'rgba(238,178,105,0.9)' : 'rgba(255,255,255,0.22)';
+      ctx.fill();
+      if(passed){
+        ctx.beginPath(); ctx.arc(p[0],p[1],6,0,Math.PI*2);
+        ctx.strokeStyle='rgba(238,178,105,0.25)'; ctx.lineWidth=1; ctx.stroke();
+        ctx.lineWidth=1.8;
+      }
+    });
+
+    if(head<1.0){
+      ctx.beginPath(); ctx.arc(hp[0],hp[1],3.4,0,Math.PI*2);
+      ctx.fillStyle='#eeb269'; ctx.fill();
+      ctx.beginPath(); ctx.arc(hp[0],hp[1],9,0,Math.PI*2);
+      ctx.strokeStyle='rgba(238,178,105,0.35)'; ctx.lineWidth=1; ctx.stroke();
+    }
+
+    if(!REDUCED) requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ============ terminal demo ============ */
+var $body = document.getElementById('termBody');
+var $title = document.getElementById('termTitle');
+var chips = Array.prototype.slice.call(document.querySelectorAll('.stage-chip'));
+var speedBtn = document.getElementById('speedBtn');
+var replayBtn = document.getElementById('replayBtn');
+var dirA = document.getElementById('dirA'), dirB = document.getElementById('dirB');
+
+/* line: [class, text, pause-after-ms] ; ['S',n] marks a stage boundary */
+var SCRIPT_WXO = [
+  ['S',0],
+  ['cmd','wheatear',500],
+  ['hd','  WHEATEAR · migrate AI agents between orchestration platforms',300],
+  ['dim','',200],
+  ['out','? How do you want to migrate?',350],
+  ['sel','  ▸ Auto — connect to source, discover all agents, migrate & deploy',420],
+  ['out','? Which platform are you migrating from?',300],
+  ['sel','  ▸ IBM watsonx Orchestrate',420],
+  ['dim','',150],
+  ['amber','── Step 1/6 · Source credentials ─────────────────────────',260],
+  ['out','  Service Instance URL: https://api.us-south.watson-orchestrate…',260],
+  ['ok','  ✓ Using saved API key from keychain  (***a_7P)',300],
+  ['amber','── Step 2/6 · Connect ────────────────────────────────────',260],
+  ['ok','  ✓ Authenticated with IBM IAM — 18 agent(s) found',500],
+
+  ['S',1],
+  ['amber','── Step 3/6 · Discover agents & toolkits ─────────────────',300],
+  ['dim','  #   AGENT                      MODEL           TOOLKITS',140],
+  ['out','  1   incident-mgmt-agent        gpt-oss-120b    SNOWMCP · itsm-awx',120],
+  ['out','  2   change-mgmt-agent          gpt-oss-120b    SNOWMCP',120],
+  ['out','  3   pre-check-validation       gpt-oss-120b    —',120],
+  ['out','  4   data-collection-agent      gpt-oss-120b    —',120],
+  ['out','  5   hr-helper                  llama-3-3-70b   —',120],
+  ['dim','  …   13 more · 5 MCP toolkits registered',500],
+
+  ['S',2],
+  ['amber','── Step 4/6 · Select agents ──────────────────────────────',260],
+  ['out','? Select agent(s) to migrate:',300],
+  ['sel','  ☑ incident-mgmt-agent — ServiceNow incident automation',500],
+  ['dim','',150],
+  ['ok','  + 2 connected agent(s) pulled in automatically:',240],
+  ['ok','    pre-check-validation, data-collection-agent',240],
+  ['dim','  Migrating leaf-first so collaborators exist before their callers.',480],
+  ['amber','── Step 5/6 · Configure ──────────────────────────────────',240],
+  ['dim','  Note: transform runs deterministically. Your LLM key is saved',130],
+  ['dim','  for the last mile, but is not used unless you approve it.',130],
+  ['ok','  ✓ LLM key captured (saved — not used)',450],
+
+  ['S',3],
+  ['amber','── Step 6/6 · Export & migrate → copilot-studio ──────────',300],
+  ['hd','  Agent 1/3 · pre-check-validation   (leaf first)',280],
+  ['out','  [1/6] Export     fetching YAML from Orchestrate          ✓',190],
+  ['out','  [2/6] Import     Orchestrate YAML → canonical IR         ✓',190],
+  ['slate','  [3/6] Map        SNOWMCP is MCP → endpoint carries over  ✓',260],
+  ['slate','  [4/6] Translate  instructions carried verbatim, no LLM   ✓',260],
+  ['out','  [5/6] Validate   schema checks + 12 eval cases           ✓',190],
+  ['out','  [6/6] Export     writing Copilot solution XML            ✓',260],
+  ['dim','  Agent 2/3 · data-collection-agent……………………………… ✓ 6/6',200],
+  ['dim','  Agent 3/3 · incident-mgmt-agent………………………………… ✓ 6/6',420],
+
+  ['S',4],
+  ['amber','── Review manifest · what needs a human ──────────────────',300],
+  ['warn','  · mcp_tool   register SNOWMCP (25 tools) — paste endpoint URL',200],
+  ['warn','  · mcp_tool   register itsm-awx (12 tools) — same server, no rebuild',200],
+  ['warn','  · model      gpt-oss-120b → pick nearest Copilot model',200],
+  ['warn','  · channel    Teams publish target does not carry — re-publish',200],
+  ['dim','  4 items · nothing was silently dropped',480],
+
+  ['S',5],
+  ['amber','── Push to Copilot Studio ────────────────────────────────',300],
+  ['ok','  ✓ pac CLI 1.52 · signed in',240],
+  ['out','  Packing + importing pre-check-validation…            ✓ pushed',220],
+  ['out','  Packing + importing data-collection-agent…           ✓ pushed',220],
+  ['err','  ✗ incident-mgmt-agent — import rejected (schema)',420],
+  ['out','? There’s an issue with the generated files. Use your saved',180],
+  ['out','  LLM key to attempt a fix and retry?  (y/N)',500],
+  ['sel','  ▸ y — you approve the one AI touch in this run',380],
+  ['ok','  ✓ applied 1 fix (solution version attr) — retrying… pushed',400],
+  ['dim','',150],
+  ['hd','  Migration complete — 3/3 agents live on Copilot Studio.',240],
+  ['dim','  raw source exports kept in ./_source-exports/ for audit',0]
+];
+
+var SCRIPT_CPS = [
+  ['S',0],
+  ['cmd','wheatear',500],
+  ['out','? Which platform are you migrating from?',300],
+  ['sel','  ▸ Microsoft Copilot Studio',400],
+  ['amber','── Step 1/6 · Target credentials · watsonx Orchestrate ───',240],
+  ['ok','  ✓ Instance URL + API key from keychain',280],
+  ['amber','── Step 2/6 · Connect to Power Platform ──────────────────',240],
+  ['ok','  ✓ pac CLI 1.52 · device-code sign-in complete',450],
+
+  ['S',1],
+  ['amber','── Step 3/6 · Browse solutions ───────────────────────────',260],
+  ['dim','  UNIQUE NAME          FRIENDLY            VERSION',140],
+  ['out','  HelperBee            Helper Bee          1.0.0.2',130],
+  ['out','  ITOpsAgents          IT Ops Agents       2.1.0.0',130],
+  ['out','  Scanning… export → unpack → 3 agent(s) found',420],
+
+  ['S',2],
+  ['amber','── Step 4/6 · Select agents ──────────────────────────────',240],
+  ['sel','  ☑ Helper Bee — HR support agent (generative)',420],
+  ['amber','── Step 5/6 · Configure ──────────────────────────────────',220],
+  ['ok','  ✓ LLM key captured (saved — not used)',400],
+
+  ['S',3],
+  ['amber','── Step 6/6 · Migrate & deploy ───────────────────────────',280],
+  ['hd','  Agent 1/1 · Helper Bee',240],
+  ['out','  [1/6] Slice      isolating bot from solution XML         ✓',180],
+  ['out','  [2/6] Extract    13 topics · GPT system prompt found     ✓',200],
+  ['slate','  [3/6] Map        SharePoint knowledge → reindex_vector   ✓',260],
+  ['slate','  [4/6] Translate  2,632-char prompt carried verbatim      ✓',260],
+  ['out','  [5/6] Validate   19 eval cases from source topics        ✓',180],
+  ['out','  [6/6] Export     agent.yaml · welcome_content · llm tier ✓',380],
+
+  ['S',4],
+  ['amber','── Review manifest · what needs a human ──────────────────',260],
+  ['warn','  · knowledge  HumanResources (SharePoint) → re-index into Milvus',200],
+  ['warn','  · model      GPT5-class → tier-mapped, confirm swap',200],
+  ['warn','  · web_search source had browsing on — add a search tool',200],
+  ['dim','  3 items · nothing was silently dropped',420],
+
+  ['S',5],
+  ['amber','── Deploy to watsonx Orchestrate ─────────────────────────',260],
+  ['out','  orchestrate agents import -f ./out/agent.yaml',260],
+  ['ok','  ✓ Helper Bee deployed',300],
+  ['hd','  Migration complete — 1/1 agent live on Orchestrate.',0]
+];
+
+var state = {
+  script: SCRIPT_WXO,
+  idx: 0, timer: null,
+  speed: 1, stageStarts: [],
+  started:false
+};
+
+function computeStages(){
+  state.stageStarts = [];
+  state.script.forEach(function(ln,i){ if(ln[0]==='S') state.stageStarts[ln[1]] = i; });
+}
+computeStages();
+
+function setChip(n){
+  chips.forEach(function(c,i){
+    c.classList.toggle('active', i===n);
+    c.classList.toggle('done', i<n);
+    c.querySelector('.tick').textContent = i<n ? '✓' : (i===n ? '●' : '○');
+  });
+}
+
+var CLS = {cmd:'cmd',out:'out',ok:'ok',warn:'warn',err:'err',dim:'dim',hd:'hd',amber:'amber',slate:'slate',sel:'sel'};
+function renderLine(ln){
+  if(ln[0]==='S'){ setChip(ln[1]); return null; }
+  var el = document.createElement('span');
+  el.className = 'ln t-'+(CLS[ln[0]]||'out');
+  el.textContent = ln[1] || ' ';
+  return el;
+}
+
+function clearTerm(){
+  $body.innerHTML='';
+  state.idx=0;
+  if(state.timer){ clearTimeout(state.timer); state.timer=null; }
+  chips.forEach(function(c){ c.classList.remove('done','active'); c.querySelector('.tick').textContent='○'; });
+}
+
+function appendCursor(){
+  var old = $body.querySelector('.cursor'); if(old) old.remove();
+  var cur = document.createElement('span'); cur.className='cursor'; $body.appendChild(cur);
+}
+
+function step(){
+  if(state.idx >= state.script.length){
+    var c = $body.querySelector('.cursor'); if(c) c.remove();
+    return;
+  }
+  var ln = state.script[state.idx++];
+  var el = renderLine(ln);
+  if(el){
+    $body.appendChild(el);
+    appendCursor();
+    $body.scrollTop = $body.scrollHeight;
+  }
+  var pause = ln[0]==='S' ? 40 : (ln[2]||120)/state.speed;
+  state.timer = setTimeout(step, pause);
+}
+
+function play(fromIdx){
+  if(state.timer) clearTimeout(state.timer);
+  if(typeof fromIdx === 'number'){
+    $body.innerHTML='';
+    for(var i=0;i<fromIdx;i++){
+      var el = renderLine(state.script[i]);
+      if(el) $body.appendChild(el);
+    }
+    state.idx = fromIdx;
+    $body.scrollTop = $body.scrollHeight;
+  }
+  if(REDUCED){
+    while(state.idx < state.script.length){
+      var e = renderLine(state.script[state.idx++]);
+      if(e) $body.appendChild(e);
+    }
+    setChip(5);
+    return;
+  }
+  step();
+}
+
+function restart(){ clearTerm(); play(0); }
+
+chips.forEach(function(chip){
+  chip.addEventListener('click', function(){
+    state.started = true;
+    var n = parseInt(chip.dataset.stage,10);
+    var start = state.stageStarts[n];
+    if(typeof start === 'number') play(start);
+  });
+});
+
+replayBtn.addEventListener('click', function(){ state.started = true; restart(); });
+speedBtn.addEventListener('click', function(){
+  var fast = state.speed === 1;
+  state.speed = fast ? 2.6 : 1;
+  speedBtn.setAttribute('aria-pressed', String(fast));
+});
+
+function setCorridor(which){
+  var isA = which==='A';
+  dirA.classList.toggle('active', isA);
+  dirB.classList.toggle('active', !isA);
+  state.script = isA ? SCRIPT_WXO : SCRIPT_CPS;
+  $title.textContent = isA ? 'wheatear — orchestrate → copilot studio'
+                           : 'wheatear — copilot studio → orchestrate';
+  computeStages();
+  state.started = true;
+  restart();
+}
+dirA.addEventListener('click', function(){ setCorridor('A'); });
+dirB.addEventListener('click', function(){ setCorridor('B'); });
+
+/* auto-start when the demo scrolls into view */
+var demoSec = document.getElementById('demo');
+if('IntersectionObserver' in window){
+  var demoIO = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting && !state.started){
+        state.started = true;
+        $title.textContent = 'wheatear — orchestrate → copilot studio';
+        play(0);
+        demoIO.disconnect();
+      }
+    });
+  },{threshold:0.25});
+  demoIO.observe(demoSec);
+}else{
+  state.started = true;
+  $title.textContent = 'wheatear — orchestrate → copilot studio';
+  play(0);
+}
+
+/* ============ copy cli ============ */
+var copyBtn = document.getElementById('copyCli');
+var toast = document.getElementById('toast');
+if(copyBtn){
+  copyBtn.addEventListener('click', function(){
+    var cmd = 'pip install -e . && wheatear';
+    var write = navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject();
+    write.then(function(){
+      toast.classList.add('show');
+      setTimeout(function(){ toast.classList.remove('show'); }, 1800);
+    }).catch(function(){});
+  });
+}
+})();
+</script>
 </body>
 </html>

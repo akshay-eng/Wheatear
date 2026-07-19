@@ -24,6 +24,7 @@ the dialog-tree-shaped mcs_yaml path.
 
 from __future__ import annotations
 
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -91,12 +92,23 @@ def _walk_actions(
             )
 
         elif kind == "SearchAndSummarizeContent":
-            knowledge_source = action.get("knowledgeSource", action.get("id", "unknown_knowledge_source"))
-            raw_knowledge_refs.append(RawKnowledgeRef(name=knowledge_source))
-            topic.unsupported_notes.append(
-                f"Action '{action.get('id')}' searches knowledge source '{knowledge_source}'; "
-                "extracted as a knowledge reference for the Map stage, not modeled as a dialog node."
-            )
+            knowledge_source = action.get("knowledgeSource")
+            if knowledge_source:
+                raw_knowledge_refs.append(RawKnowledgeRef(name=knowledge_source))
+                topic.unsupported_notes.append(
+                    f"Action '{action.get('id')}' searches knowledge source '{knowledge_source}'; "
+                    "extracted as a knowledge reference for the Map stage, not modeled as a dialog node."
+                )
+            else:
+                # No explicit knowledgeSource: this is generative search over
+                # whatever knowledge the agent already has configured (the
+                # default "Conversational boosting" topic), not a distinct
+                # source. Fabricating a knowledge ref here produced a phantom
+                # "search-content" knowledge base in the export -- so don't.
+                topic.unsupported_notes.append(
+                    f"Action '{action.get('id')}' does generative search over the agent's own "
+                    "configured knowledge sources; no separate knowledge source to map."
+                )
 
         else:
             topic.unsupported_notes.append(
@@ -124,10 +136,39 @@ def _parse_topic_component(
     return topic, raw_tool_refs, raw_knowledge_refs
 
 
-def _parse_gpt_component(data: dict) -> tuple[str | None, str | None]:
+def _parse_gpt_component(data: dict) -> tuple[str | None, str | None, bool]:
     instructions = (data.get("instructions") or "").strip()
     model_hint = data.get("aISettings", {}).get("model", {}).get("modelNameHint")
-    return (instructions or None), model_hint
+    web_search = bool(data.get("gptCapabilities", {}).get("webBrowsing", False))
+    return (instructions or None), model_hint, web_search
+
+
+def _parse_configuration(bots_dir: Path) -> tuple[list[str], str | None]:
+    """Read bots/*/configuration.json for deployment channels and the
+    content-moderation posture. Returns ([] , None) if absent so a missing
+    file never breaks an import.
+    """
+    config_files = list(bots_dir.glob("*/configuration.json"))
+    if not config_files:
+        return [], None
+    try:
+        config = json.loads(config_files[0].read_text())
+    except (json.JSONDecodeError, OSError):
+        return [], None
+    channels = [c.get("channelId") for c in config.get("channels", []) if c.get("channelId")]
+    content_moderation = config.get("aISettings", {}).get("contentModeration")
+    return channels, content_moderation
+
+
+def _welcome_from_conversation_start(topic: Topic, agent_name: str) -> str | None:
+    """The first message in the ConversationStart topic is the agent's welcome
+    message. Copilot templates it with {System.Bot.Name}; substitute the real
+    name so it reads correctly on the target.
+    """
+    for node in topic.nodes:
+        if node.kind == DialogNodeKind.MESSAGE and node.text:
+            return node.text.replace("{System.Bot.Name}", agent_name).strip()
+    return None
 
 
 def _parse_knowledge_component(name: str, description: str | None, data: dict) -> RawKnowledgeRef:
@@ -189,6 +230,8 @@ def import_agent(solution_dir: Path) -> ImportResult:
     import_notes: list[str] = []
     existing_instructions: str | None = None
     model_hint: str | None = None
+    web_search = False
+    welcome_message: str | None = None
 
     component_dirs = sorted(components_dir.iterdir()) if components_dir.is_dir() else []
     for component_dir in component_dirs:
@@ -204,10 +247,12 @@ def import_agent(solution_dir: Path) -> ImportResult:
             topic, tool_refs, knowledge_refs = _parse_topic_component(name, schema_suffix, data)
             raw_tool_refs.extend(tool_refs)
             raw_knowledge_refs.extend(knowledge_refs)
+            if schema_suffix == "ConversationStart":
+                welcome_message = _welcome_from_conversation_start(topic, agent_name)
             topics.append(topic)
 
         elif component_type == COMPONENT_TYPE_GPT:
-            existing_instructions, model_hint = _parse_gpt_component(data)
+            existing_instructions, model_hint, web_search = _parse_gpt_component(data)
 
         elif component_type == COMPONENT_TYPE_KNOWLEDGE:
             raw_knowledge_refs.append(_parse_knowledge_component(name, description, data))
@@ -217,12 +262,18 @@ def import_agent(solution_dir: Path) -> ImportResult:
                 f"Skipped component '{component_dir.name}' (componenttype={component_type}); unrecognized type."
             )
 
+    channels, content_moderation = _parse_configuration(bots_dir)
+
     agent = Agent(
         name=agent_name,
         source_platform=SOURCE_PLATFORM,
         topics=topics,
         existing_instructions=existing_instructions,
         model_hint=model_hint,
+        welcome_message=welcome_message,
+        channels=channels,
+        content_moderation=content_moderation,
+        web_search=web_search,
     )
 
     return ImportResult(

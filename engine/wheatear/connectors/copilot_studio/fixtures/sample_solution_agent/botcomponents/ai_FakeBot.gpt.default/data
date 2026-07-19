@@ -6,7 +6,7 @@ instructions: |
   involves security incidents or data breaches, do not attempt to handle it yourself;
   escalate using the Escalate topic.
 gptCapabilities:
-  webBrowsing: false
+  webBrowsing: true
 
 aISettings:
   model:

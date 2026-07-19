@@ -17,15 +17,27 @@ def test_save_then_load_round_trips(tmp_path):
 
 
 def test_save_config_never_writes_a_secret_value(tmp_path):
-    """The config dataclass has no field for the key value itself -- this
-    test exists so an accidental future field addition (e.g. 'llm_api_key')
-    gets caught immediately rather than silently persisting a secret.
+    """Enumerate every key the config file is allowed to contain.
+
+    If a new field is added to WheatearConfig it must be listed here
+    explicitly, forcing a conscious decision that it's safe (not a secret
+    value) to persist on disk. Fields ending in '_env' store an env-var
+    NAME, not the secret itself.
     """
     path = tmp_path / "config.json"
     save_config(WheatearConfig(), path)
 
     raw = json.loads(path.read_text())
-    assert set(raw.keys()) == {"llm_provider", "llm_key_env"}
+    assert set(raw.keys()) == {
+        "llm_provider",
+        "llm_key_env",
+        "orchestrate_instance_url",   # a URL, not a secret
+        "orchestrate_api_key_env",    # stores env-var name, never the key value
+        "source_env_url",             # Dataverse org URL, not a secret
+        "source_tenant_id",           # Azure AD GUID, not a secret
+        "source_orchestrate_url",     # source WXO instance URL, not a secret
+        "source_orchestrate_workspace_id",  # workspace GUID, not a secret
+    }
 
 
 def test_load_config_handles_corrupt_file_gracefully(tmp_path):
