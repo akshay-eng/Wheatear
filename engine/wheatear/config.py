@@ -44,6 +44,8 @@ class WheatearConfig:
     # Copilot Studio source
     source_env_url: str | None = None    # Power Platform Dataverse URL
     source_tenant_id: str | None = None  # Azure AD tenant ID
+    # First-launch onboarding (pre-flight dependency check) already shown
+    onboarding_completed: bool = False
 
 
 def load_config(path: Path = CONFIG_PATH) -> WheatearConfig | None:
@@ -66,6 +68,7 @@ def load_config(path: Path = CONFIG_PATH) -> WheatearConfig | None:
         ),
         source_env_url=data.get("source_env_url"),
         source_tenant_id=data.get("source_tenant_id"),
+        onboarding_completed=data.get("onboarding_completed", False),
     )
 
 

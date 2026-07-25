@@ -8,7 +8,7 @@ are silent no-ops so the wizard still works, just without persistence.
 
 from __future__ import annotations
 
-_SERVICE = "wheatear"
+SERVICE = "wheatear"
 
 # Canonical keychain key names used across the wizard.
 KEY_SRC_ORCHESTRATE = "source_orchestrate_api_key"
@@ -24,7 +24,7 @@ def save_secret(key: str, value: str) -> bool:
     """Persist a secret in the OS keychain. Returns True on success."""
     try:
         import keyring  # noqa: PLC0415
-        keyring.set_password(_SERVICE, key, value)
+        keyring.set_password(SERVICE, key, value)
         return True
     except Exception:
         return False
@@ -34,7 +34,7 @@ def load_secret(key: str) -> str | None:
     """Retrieve a secret from the OS keychain. Returns None if absent."""
     try:
         import keyring  # noqa: PLC0415
-        return keyring.get_password(_SERVICE, key)
+        return keyring.get_password(SERVICE, key)
     except Exception:
         return None
 
@@ -43,6 +43,6 @@ def delete_secret(key: str) -> None:
     """Remove a secret from the OS keychain. Silent if absent."""
     try:
         import keyring  # noqa: PLC0415
-        keyring.delete_password(_SERVICE, key)
+        keyring.delete_password(SERVICE, key)
     except Exception:
         pass
