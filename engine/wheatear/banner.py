@@ -68,7 +68,11 @@ def _logo_lockup(console_width: int) -> Table | Text:
     return grid
 
 
-def print_banner(console: Console) -> None:
+def print_header(console: Console) -> None:
+    """The shared visual identity -- welcome banner + logo lockup -- used at
+    the top of every top-level screen (main menu, onboarding, ...). Extracted
+    so no screen re-implements the pyfiglet/rich-pixels layout itself.
+    """
     console.print(
         Panel(
             "[bold]Welcome to Wheatear[/bold] -- migrate AI agents between orchestration platforms.",
@@ -80,6 +84,23 @@ def print_banner(console: Console) -> None:
 
     console.print(_logo_lockup(console.width))
 
+
+def print_compact_header(console: Console) -> None:
+    """A one-line identity strip for screens after the initial splash.
+
+    The full print_header() (welcome panel + pyfiglet/rich-pixels logo) is
+    ~13 lines by itself -- fine as a one-time entrance, but repeating it on
+    every wizard step easily exceeds a standard 24-row terminal once the
+    step's own prompt is added, pushing the top of that *same* render past
+    the visible viewport before it finishes drawing. That looks exactly
+    like leftover stacking even though the screen genuinely did clear.
+    """
+    console.print(f"[bold {AMBER}]WHEATEAR[/bold {AMBER}]  [dim]-- migrate AI agents between orchestration platforms[/dim]")
+
+
+def print_notes(console: Console) -> None:
+    """The 'Before you start' disclaimers panel, shown once per session
+    after the header (or after onboarding, if this is a first run)."""
     console.print(
         Panel(
             "[bold]Notes:[/bold]\n\n"
@@ -95,3 +116,8 @@ def print_banner(console: Console) -> None:
             padding=(1, 2),
         )
     )
+
+
+def print_banner(console: Console) -> None:
+    print_header(console)
+    print_notes(console)
