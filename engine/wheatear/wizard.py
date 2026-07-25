@@ -33,8 +33,9 @@ from rich.panel import Panel
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from wheatear.banner import print_banner
+from wheatear.banner import print_banner, print_compact_header
 from wheatear.config import WheatearConfig, load_config, save_config
+from wheatear.onboarding import ensure_corridor_tools, needs_onboarding, run_onboarding
 from wheatear.connectors.copilot_studio.importer import detect_format
 from wheatear.connectors.copilot_studio.importer import import_agent as copilot_import_agent
 from wheatear.connectors.registry import load_exporter
@@ -45,6 +46,7 @@ from wheatear.pipeline.map import map_agent
 from wheatear.pipeline.translate import deterministic_instructions, translate_agent
 from wheatear.pipeline.validate import validate_agent
 from wheatear.source_fetch import SourceFetchError, resolve_export_source
+from wheatear.tui import flush_input
 
 console = Console()
 
@@ -138,6 +140,310 @@ def _cancelled(value) -> bool:
     return value is None
 
 
+BACK = object()  # sentinel: a step function returns this to mean "go back"
+
+
+def _clear_step(step_n: int, total: int, label: str) -> None:
+    """Clear the screen and redraw a compact header + step marker, so each
+    step replaces the last one on screen instead of stacking underneath it.
+
+    Uses the one-line compact header rather than the full splash logo --
+    the full header is ~13 lines by itself, and repeating it on every step
+    easily pushes step content past a standard terminal's height, which
+    looks identical to "didn't clear" even when it genuinely did.
+    """
+    flush_input()
+    console.clear()
+    print_compact_header(console)
+    _step_header(step_n, total, label)
+
+
+def _clear_section(label: str) -> None:
+    """Same clear-and-redraw as _clear_step, for screens that sit outside a
+    numbered sequence (choosing the corridor before a flow's steps begin) --
+    numbering them "1/2" only to restart at "1/7" a moment later would read
+    as the wizard having reset itself."""
+    flush_input()
+    console.clear()
+    print_compact_header(console)
+    console.rule(f"[bold cyan]{label}[/bold cyan]", style="dim")
+
+
+def _with_back_choice(
+    choices: list[questionary.Choice], allow_back: bool, label: str = "◀ Back to previous step"
+) -> list[questionary.Choice]:
+    """Append a selectable '◀ Back' choice to a select/checkbox prompt's
+    choices when this step isn't the first one in its flow."""
+    if not allow_back:
+        return choices
+    return [*choices, questionary.Separator(), questionary.Choice(label, value=BACK)]
+
+
+def _back_hint(allow_back: bool) -> None:
+    """Shown above a free-text prompt that supports going back -- there's no
+    choice list to append '◀ Back' to, so a typed sentinel does the job."""
+    if allow_back:
+        console.print("  [dim]Type :back and press Enter to return to the previous step.[/dim]")
+
+
+def _is_back(raw: str) -> bool:
+    """True if the user typed the :back sentinel.
+
+    Checked as a *suffix*, not an exact match: questionary.text pre-fills a
+    default value with the cursor at the end, so typing ":back" over a
+    remembered/suggested value appends rather than replaces -- an exact
+    match would silently treat "some/path:back" as a literal path instead
+    of recognizing the sentinel.
+    """
+    stripped = raw.strip().lower()
+    return stripped.endswith(":back") or stripped.endswith(":b")
+
+
+# Selected rows get a formatted-text title (a [(style, text)] list, which
+# questionary passes straight through to prompt_toolkit) so a picked row is
+# green and boxed rather than differing by one faint glyph. Unselected rows
+# stay plain strings on purpose: questionary only applies its own
+# "class:highlighted" style to string titles, so leaving them plain is what
+# keeps the cursor row visibly highlighted as you move through the list.
+_PICKED_STYLE = "fg:ansigreen bold"
+
+# Everything the selection screen draws around the item rows: the caller's
+# header + rule (2), the summary block (3), the prompt line (1), and the
+# menu's own fixed rows -- search, clear-filter, select-all, two separators,
+# both pager rows, confirm, back (9). Deliberately exact: if the choice list
+# outgrows the terminal, prompt_toolkit scrolls it, and the first thing to
+# scroll out of sight is the Confirm row at the bottom.
+_MENU_CHROME_ROWS = 16
+
+
+def _match_filter(haystack: str, terms: list[str]) -> bool:
+    return all(t in haystack for t in terms)
+
+
+def _multiselect_menu(
+    prompt: str,
+    items: list,
+    label_fn,
+    back_label: str = "◀ Back to previous step",
+    key_fn=None,
+    preselected: set | None = None,
+    redraw=None,
+    noun: str = "item",
+    context: str = "",
+    page_size: int | None = None,
+):
+    """Enter-driven multi-select: press Enter on a row to toggle it (not
+    Space, which isn't discoverable and is inconsistent with every other
+    single-key-per-choice menu in this wizard). A distinct 'Confirm' choice
+    is the only thing that actually finishes the selection.
+
+    Built to stay usable against a real enterprise inventory rather than a
+    demo list of five:
+
+      * a type-to-filter row, so finding one agent among thousands doesn't
+        mean scrolling to it;
+      * fixed-size pages, so the menu never grows taller than the terminal
+        (prompt_toolkit would scroll it, but a scrolled list hides the
+        Confirm row -- the one thing the user is looking for);
+      * "Select all" scoped to the current filter, which is what makes
+        "migrate everything matching X" a two-keystroke operation;
+      * a running summary of what's picked, printed above the menu.
+
+    `redraw` is called before each render to repaint the screen underneath
+    (see _clear_step): each toggle is a fresh questionary prompt, and without
+    it every keystroke would leave another answered "? Select agent(s) ..."
+    line stacking down the screen.
+
+    `preselected` (compared via `key_fn`, identity by default) lets a caller
+    re-show this menu with a prior answer already checked -- e.g. after the
+    user went back past this step and returned, rather than starting blank.
+
+    Returns the chosen subset of `items`, or BACK.
+    """
+    key_fn = key_fn or (lambda item: item)
+    keys = [key_fn(item) for item in items]
+    labels = [label_fn(item) for item in items]
+    haystacks = [label.lower() for label in labels]
+    selected: set = {k for k in (preselected or set()) if k in set(keys)}
+
+    if page_size is None:
+        page_size = max(5, min(15, console.height - _MENU_CHROME_ROWS))
+
+    query = ""
+    page = 0
+    # Must start on a choice that's selectable on the very first render --
+    # Confirm is disabled until at least one item is picked, so it can't be
+    # the initial default (questionary rejects a default pointing at a
+    # disabled choice).
+    last_value: object = "__search__"
+
+    while True:
+        terms = query.lower().split()
+        matches = [i for i in range(len(items)) if _match_filter(haystacks[i], terms)]
+        total_pages = max(1, -(-len(matches) // page_size))
+        page = min(page, total_pages - 1)
+        window = matches[page * page_size : (page + 1) * page_size]
+
+        matching_keys = {keys[i] for i in matches}
+        all_matching_picked = bool(matches) and matching_keys <= selected
+
+        if redraw:
+            redraw()
+        _print_selection_summary(
+            labels, keys, selected, matches, items, query, noun, context, page, total_pages
+        )
+
+        choices: list = []
+        if query:
+            choices.append(
+                questionary.Choice(f'🔎 Filter: "{query}"  —  edit', value="__search__")
+            )
+            choices.append(questionary.Choice("✕ Clear filter", value="__clear_search__"))
+        else:
+            choices.append(
+                questionary.Choice(f"🔎 Search / filter {noun}s by name…", value="__search__")
+            )
+        if matches:
+            scope = f"{len(matches)} matching" if query else str(len(items))
+            choices.append(
+                questionary.Choice(
+                    f"{'✓ Deselect' if all_matching_picked else '○ Select'} all {scope}",
+                    value="__toggle_all__",
+                )
+            )
+        choices.append(questionary.Separator())
+
+        for i in window:
+            if keys[i] in selected:
+                choices.append(
+                    questionary.Choice([(_PICKED_STYLE, f"[✓] {labels[i]}")], value=i)
+                )
+            else:
+                choices.append(questionary.Choice(f"[ ] {labels[i]}", value=i))
+        if not matches:
+            choices.append(
+                questionary.Choice(
+                    f"(no {noun} matches this filter)", value="__none__", disabled="no matches"
+                )
+            )
+
+        choices.append(questionary.Separator())
+        if total_pages > 1:
+            if page > 0:
+                choices.append(questionary.Choice("▲ Previous page", value="__prev__"))
+            if page < total_pages - 1:
+                choices.append(questionary.Choice("▼ Next page", value="__next__"))
+
+        count = len(selected)
+        if count:
+            choices.append(
+                questionary.Choice(
+                    [(_PICKED_STYLE, f"✅ Confirm — migrate {count} {noun}{'s' if count != 1 else ''}")],
+                    value="__confirm__",
+                )
+            )
+        else:
+            choices.append(
+                questionary.Choice(
+                    "✅ Confirm",
+                    value="__confirm__",
+                    disabled=f"select at least one {noun} first",
+                )
+            )
+        choices.append(questionary.Choice(back_label, value=BACK))
+
+        # Keeping the cursor where it was only works while that row still
+        # exists -- paging or filtering can retire it, and questionary raises
+        # on a default that isn't a selectable value.
+        selectable = {
+            c.value for c in choices if isinstance(c, questionary.Choice) and not c.disabled
+        }
+        if last_value not in selectable:
+            last_value = "__search__"
+
+        flush_input()
+        pick = questionary.select(prompt, choices=choices, default=last_value).ask()
+        if _cancelled(pick):
+            raise SystemExit(1)
+        last_value = pick
+
+        if pick is BACK:
+            return BACK
+        if pick == "__confirm__":
+            return [item for item, k in zip(items, keys) if k in selected]
+        if pick == "__search__":
+            flush_input()
+            typed = questionary.text(
+                f"Filter {noun}s (substring match, blank shows all):", default=query
+            ).ask()
+            query = "" if _cancelled(typed) else typed.strip()
+            page = 0
+            last_value = "__search__"
+            continue
+        if pick == "__clear_search__":
+            query = ""
+            page = 0
+            last_value = "__search__"
+            continue
+        if pick == "__prev__":
+            page -= 1
+            last_value = "__search__"
+            continue
+        if pick == "__next__":
+            page += 1
+            last_value = "__search__"
+            continue
+        if pick == "__toggle_all__":
+            # Scoped to what's on screen: with a filter active, "select all"
+            # meaning "all 100k" would be a destructive surprise.
+            if all_matching_picked:
+                selected -= matching_keys
+            else:
+                selected |= matching_keys
+            continue
+        selected.symmetric_difference_update({keys[pick]})
+
+
+def _print_selection_summary(
+    labels: list[str],
+    keys: list,
+    selected: set,
+    matches: list[int],
+    items: list,
+    query: str,
+    noun: str,
+    context: str,
+    page: int,
+    total_pages: int,
+) -> None:
+    """The at-a-glance answer to "what have I actually picked?" -- row markers
+    alone are easy to lose track of once the list is filtered and paged, and
+    a selection made three pages ago is otherwise invisible.
+
+    Exactly three lines tall (blank + counts + picks), because _MENU_CHROME_ROWS
+    budgets for it when sizing a page.
+    """
+    picked_labels = [labels[i] for i in range(len(items)) if keys[i] in selected]
+    shown = ", ".join(label.split("  ")[0] for label in picked_labels[:4])
+    if len(picked_labels) > 4:
+        shown += f", +{len(picked_labels) - 4} more"
+
+    line = (
+        f"  [bold green]{len(picked_labels)} selected[/bold green]"
+        f"  [dim]of {len(items)} {noun}s[/dim]"
+    )
+    if context:
+        line += f"  [dim]· {context}[/dim]"
+    if query:
+        line += f'  [dim]·[/dim]  [bold]{len(matches)}[/bold] [dim]matching "{query}"[/dim]'
+    if total_pages > 1:
+        line += f"  [dim]· page {page + 1}/{total_pages}[/dim]"
+
+    console.print()
+    console.print(line)
+    console.print(f"  [green]{shown}[/green]" if shown else "  [dim]nothing selected yet[/dim]")
+
+
 def _platform_choices(platforms: list[tuple[str, str, bool]]) -> list[questionary.Choice]:
     return [
         questionary.Choice(name, value=key)
@@ -151,21 +457,39 @@ def _platform_choices(platforms: list[tuple[str, str, bool]]) -> list[questionar
 # Platform / corridor questions (shared by both modes)
 # ---------------------------------------------------------------------------
 
-def ask_source_platform() -> str:
+def ask_source_platform(
+    allow_back: bool = False,
+    back_label: str = "◀ Back to previous step",
+    default: str | None = None,
+) -> str:
     result = questionary.select(
         "Which platform are you migrating from?",
-        choices=_platform_choices(SOURCE_PLATFORMS),
+        choices=_with_back_choice(_platform_choices(SOURCE_PLATFORMS), allow_back, back_label),
+        default=default,
     ).ask()
     if _cancelled(result):
         raise SystemExit(1)
     return result
 
 
-def ask_target_platform(exclude_source_key: str | None = None) -> str:
+def ask_target_platform(
+    exclude_source_key: str | None = None,
+    allow_back: bool = False,
+    back_label: str = "◀ Back to previous step",
+    default: str | None = None,
+    extra_choices: list | None = None,
+) -> str:
+    """`extra_choices` are prepended non-platform destinations (currently the
+    Orchestrate flow's "export to folder, don't migrate" escape hatch)."""
     choices = [p for p in TARGET_PLATFORMS if p[1] != exclude_source_key]
     result = questionary.select(
         "Which platform are you migrating to?",
-        choices=_platform_choices(choices),
+        choices=_with_back_choice(
+            (extra_choices or []) + _platform_choices(choices), allow_back, back_label
+        ),
+        # A remembered choice only applies if it's still a valid option here
+        # (e.g. not the platform just picked as the source).
+        default=default if default != exclude_source_key else None,
     ).ask()
     if _cancelled(result):
         raise SystemExit(1)
@@ -202,7 +526,11 @@ class ScannedSolution:
     error: str | None = None    # set when export/unpack failed
 
 
-def ask_orchestrate_credentials(existing: WheatearConfig | None) -> OrchestrateCredentials:
+def ask_orchestrate_credentials(
+    existing: WheatearConfig | None,
+    allow_back: bool = False,
+    default_url: str | None = None,
+) -> OrchestrateCredentials:
     """Prompt for watsonx Orchestrate deployment credentials.
 
     The API key value is set in os.environ for the current session only --
@@ -225,9 +553,16 @@ def ask_orchestrate_credentials(existing: WheatearConfig | None) -> OrchestrateC
 
     from wheatear.creds import KEY_TGT_ORCHESTRATE
 
+    _back_hint(allow_back)
     saved_url = existing.orchestrate_instance_url if existing else None
-    url = questionary.text("Service Instance URL:", default=saved_url or "").ask()
-    if _cancelled(url) or not url.strip():
+    # Prefer what the user already typed this session (if they're revisiting
+    # this step after going back) over whatever's persisted from a prior run.
+    url = questionary.text("Service Instance URL:", default=default_url or saved_url or "").ask()
+    if _cancelled(url):
+        raise SystemExit(1)
+    if allow_back and _is_back(url):
+        return BACK
+    if not url.strip():
         raise SystemExit(1)
 
     api_key_env = (existing.orchestrate_api_key_env if existing else None) or "ORCHESTRATE_API_KEY"
@@ -242,23 +577,30 @@ def ask_orchestrate_credentials(existing: WheatearConfig | None) -> OrchestrateC
 # LLM settings
 # ---------------------------------------------------------------------------
 
-def ask_llm_settings(existing: WheatearConfig | None) -> WheatearConfig:
+def ask_llm_settings(
+    existing: WheatearConfig | None, allow_back: bool = False, default: str | None = None
+) -> WheatearConfig:
     console.print(
         "  [dim]Note: the transform currently runs deterministically. Your LLM key is "
         "saved for later (when AI-assisted translation is enabled) but is not used now.[/dim]"
     )
     provider = questionary.select(
         "Which LLM provider's key should Wheatear save (for later use)?",
-        choices=[
-            questionary.Choice("anthropic (Claude)", value="anthropic"),
-            questionary.Choice("google (Gemini)", value="google"),
-            questionary.Choice("openai", value="openai", disabled="not yet implemented"),
-            questionary.Choice("watsonx.ai", value="watsonx", disabled="not yet implemented"),
-        ],
-        default="anthropic",
+        choices=_with_back_choice(
+            [
+                questionary.Choice("anthropic (Claude)", value="anthropic"),
+                questionary.Choice("google (Gemini)", value="google"),
+                questionary.Choice("openai", value="openai", disabled="not yet implemented"),
+                questionary.Choice("watsonx.ai", value="watsonx", disabled="not yet implemented"),
+            ],
+            allow_back,
+        ),
+        default=default or "anthropic",
     ).ask()
     if _cancelled(provider):
         raise SystemExit(1)
+    if provider is BACK:
+        return BACK
 
     key_env = resolve_key_env_for_provider(provider, existing)
     return WheatearConfig(llm_provider=provider, llm_key_env=key_env)
@@ -277,14 +619,22 @@ def resolve_api_key(config: WheatearConfig) -> str:
 # Manual mode path input
 # ---------------------------------------------------------------------------
 
-def ask_export_path() -> Path:
+def ask_export_path(allow_back: bool = False, default: str | None = None) -> Path:
+    _back_hint(allow_back)
     while True:
-        raw = questionary.text("GitHub repo URL or local path to the export:").ask()
+        raw = questionary.text(
+            "GitHub repo URL or local path to the export:", default=default or ""
+        ).ask()
         if _cancelled(raw):
             raise SystemExit(1)
+        if allow_back and _is_back(raw):
+            return BACK
+        default = raw  # a failed attempt below shouldn't erase what they just typed
 
         try:
-            path = resolve_export_source(raw)
+            # A GitHub URL means a clone here -- easily several seconds.
+            with console.status("  Fetching the export…", spinner="dots"):
+                path = resolve_export_source(raw)
         except SourceFetchError as exc:
             console.print(f"[red]{exc}[/red] Try again.")
             continue
@@ -299,13 +649,16 @@ def ask_export_path() -> Path:
         return path
 
 
-def ask_output_path(export_path: Path) -> Path:
+def ask_output_path(export_path: Path, allow_back: bool = False, default: str | None = None) -> Path:
+    _back_hint(allow_back)
     raw = questionary.text(
         "Where should the watsonx Orchestrate output go?",
-        default=str(suggest_output_path(export_path)),
+        default=default or str(suggest_output_path(export_path)),
     ).ask()
     if _cancelled(raw):
         raise SystemExit(1)
+    if allow_back and _is_back(raw):
+        return BACK
     return Path(raw).expanduser()
 
 
@@ -582,6 +935,7 @@ def _build_final_config(
         ),
         source_env_url=saved_config.source_env_url if saved_config else None,
         source_tenant_id=saved_config.source_tenant_id if saved_config else None,
+        onboarding_completed=saved_config.onboarding_completed if saved_config else False,
     )
 
 
@@ -589,36 +943,126 @@ def _build_final_config(
 # Manual wizard
 # ---------------------------------------------------------------------------
 
-def _manual_wizard() -> None:
-    source = ask_source_platform()
-    target = ask_target_platform(exclude_source_key=source)
-    validate_corridor(source, target)
+def _manual_wizard() -> bool:
+    """Gather every answer via a back-navigable step sequence (each step
+    clears and redraws in place; every step -- including the first -- offers
+    a way back), then run the pipeline once, uninterrupted, against the
+    collected answers.
 
+    Returns True if the user backed out of step 1 entirely (the caller
+    should return to migration-mode selection instead of exiting), False
+    once the pipeline has run.
+    """
     saved_config = load_config()
-    orchestrate_creds: OrchestrateCredentials | None = None
-    if target == "orchestrate":
-        orchestrate_creds = ask_orchestrate_credentials(saved_config)
+    TOTAL = 6
+    answers: dict = {}
+    step = 1
 
-    export_path = ask_export_path()
-    output_path = ask_output_path(export_path)
+    while True:
+        if step == 1:
+            _clear_step(1, TOTAL, "Source platform")
+            source = ask_source_platform(
+                allow_back=True, back_label="◀ Back to migration mode",
+                default=answers.get("source"),
+            )
+            if source is BACK:
+                return True
+            answers["source"] = source
+            step = 2
+
+        elif step == 2:
+            _clear_step(2, TOTAL, "Target platform")
+            target = ask_target_platform(
+                exclude_source_key=answers["source"], allow_back=True,
+                default=answers.get("target"),
+            )
+            if target is BACK:
+                step = 1
+                continue
+            try:
+                validate_corridor(answers["source"], target)
+            except SystemExit:
+                questionary.press_any_key_to_continue("Press any key to try again...").ask()
+                continue  # redraw step 2 and re-ask
+            answers["target"] = target
+            if target == "orchestrate":
+                step = 3
+            else:
+                answers["orchestrate_creds"] = None
+                step = 4
+
+        elif step == 3:  # only reached when target == "orchestrate"
+            _clear_step(3, TOTAL, "Target credentials")
+            existing_creds = answers.get("orchestrate_creds")
+            creds = ask_orchestrate_credentials(
+                saved_config, allow_back=True,
+                default_url=existing_creds.instance_url if existing_creds else None,
+            )
+            if creds is BACK:
+                step = 2
+                continue
+            answers["orchestrate_creds"] = creds
+            step = 4
+
+        elif step == 4:
+            _clear_step(4, TOTAL, "Export location")
+            existing_path = answers.get("export_path")
+            export_path = ask_export_path(
+                allow_back=True, default=str(existing_path) if existing_path else None
+            )
+            if export_path is BACK:
+                step = 3 if answers["target"] == "orchestrate" else 2
+                continue
+            answers["export_path"] = export_path
+            step = 5
+
+        elif step == 5:
+            _clear_step(5, TOTAL, "Output location")
+            existing_output = answers.get("output_path")
+            output_path = ask_output_path(
+                answers["export_path"], allow_back=True,
+                default=str(existing_output) if existing_output else None,
+            )
+            if output_path is BACK:
+                step = 4
+                continue
+            answers["output_path"] = output_path
+            step = 6
+
+        else:  # step == 6
+            _clear_step(6, TOTAL, "LLM settings (for later use)")
+            existing_llm = answers.get("llm_config")
+            llm_config = ask_llm_settings(
+                saved_config, allow_back=True,
+                default=existing_llm.llm_provider if existing_llm else None,
+            )
+            if llm_config is BACK:
+                step = 5
+                continue
+            answers["llm_config"] = llm_config
+            break
+
+    target = answers["target"]
+    orchestrate_creds: OrchestrateCredentials | None = answers["orchestrate_creds"]
 
     try:
-        agent = _run_deterministic_stages(export_path, target=target)
+        agent = _run_deterministic_stages(answers["export_path"], target=target)
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001
         console.print(f"[bold red]Error:[/bold red] {exc}")
         raise SystemExit(1) from exc
 
-    llm_config = ask_llm_settings(saved_config)
-    final_config = _build_final_config(llm_config, orchestrate_creds, saved_config)
+    final_config = _build_final_config(answers["llm_config"], orchestrate_creds, saved_config)
     if config_changed(final_config, saved_config):
         save_config(final_config)
 
     provider = _provider_for(final_config, validate=False)
 
     try:
-        agent_path = _run_ai_and_export_stages(agent, output_path, target, final_config, provider)
+        agent_path = _run_ai_and_export_stages(
+            agent, answers["output_path"], target, final_config, provider
+        )
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -627,6 +1071,8 @@ def _manual_wizard() -> None:
 
     if orchestrate_creds and agent_path:
         _print_orchestrate_import_hint(agent_path, orchestrate_creds)
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -641,7 +1087,13 @@ class OrchestrateSrcCredentials:
     workspace_id: str = "00000000-0000-0000-0000-000000000001"
 
 
-def ask_orchestrate_source_credentials(existing: WheatearConfig | None = None) -> OrchestrateSrcCredentials:
+def ask_orchestrate_source_credentials(
+    existing: WheatearConfig | None = None,
+    allow_back: bool = False,
+    back_label: str = "◀ Back to previous step",
+    default_url: str | None = None,
+    default_workspace: str | None = None,
+):
     """Prompt for source Orchestrate instance credentials, pre-filling from saved config."""
     from wheatear.creds import KEY_SRC_ORCHESTRATE
 
@@ -659,12 +1111,18 @@ def ask_orchestrate_source_credentials(existing: WheatearConfig | None = None) -
         )
     )
 
+    if allow_back:
+        console.print(f"  [dim]Type :back and press Enter to {back_label[2:].lower()}.[/dim]")
     saved_url = existing.source_orchestrate_url if existing else None
     url = questionary.text(
         "Source Orchestrate — Service Instance URL:",
-        default=saved_url or "",
+        default=default_url or saved_url or "",
     ).ask()
-    if _cancelled(url) or not url.strip():
+    if _cancelled(url):
+        raise SystemExit(1)
+    if allow_back and _is_back(url):
+        return BACK
+    if not url.strip():
         raise SystemExit(1)
 
     api_key = _prompt_api_key(
@@ -680,7 +1138,7 @@ def ask_orchestrate_source_credentials(existing: WheatearConfig | None = None) -
     ) or DEFAULT_WORKSPACE_ID
     workspace_id = questionary.text(
         "Workspace ID:",
-        default=saved_ws,
+        default=default_workspace or saved_ws,
     ).ask()
     if _cancelled(workspace_id):
         raise SystemExit(1)
@@ -690,110 +1148,6 @@ def ask_orchestrate_source_credentials(existing: WheatearConfig | None = None) -
         api_key=api_key,
         workspace_id=workspace_id.strip() or DEFAULT_WORKSPACE_ID,
     )
-
-
-# ---------------------------------------------------------------------------
-# ADK helpers
-# ---------------------------------------------------------------------------
-
-def _ensure_adk(adk) -> str:
-    """Check ADK is installed; offer to install it if not. Returns version."""
-    found, version = adk.check()
-    if found:
-        return version
-
-    console.print(
-        Panel(
-            "[bold]The IBM watsonx Orchestrate ADK CLI is required for auto mode.[/bold]\n\n"
-            "Install it with:\n\n"
-            f"  [cyan]{adk.install_guide()}[/cyan]\n\n"
-            "Wheatear can install it for you now.",
-            title="[bold yellow]Orchestrate ADK not found[/bold yellow]",
-            border_style="yellow",
-        )
-    )
-    do_install = questionary.confirm("Install the Orchestrate ADK now?", default=True).ask()
-    if _cancelled(do_install) or not do_install:
-        raise SystemExit(1)
-
-    try:
-        with console.status("  Running pip install --upgrade ibm-watsonx-orchestrate…"):
-            adk.install()
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold]{exc}[/bold]\n\n"
-                f"Try running manually:\n  [cyan]{adk.install_guide()}[/cyan]",
-                title="[bold red]Install failed[/bold red]",
-                border_style="red",
-            )
-        )
-        raise SystemExit(1) from exc
-
-    found, version = adk.check()
-    if not found:
-        console.print(
-            Panel(
-                "The install succeeded but the `orchestrate` command is still not on PATH.\n"
-                "You may need to restart your shell or activate the virtual environment.",
-                title="[bold red]orchestrate not on PATH[/bold red]",
-                border_style="red",
-            )
-        )
-        raise SystemExit(1)
-
-    console.print(f"  [green]✓[/green]  Installed {version}")
-    return version
-
-
-_TABLE_PREVIEW_MAX = 25  # agents shown in the preview table before truncating
-
-
-def _show_agents_table(agents: list, toolkits: list) -> None:
-    """Print a compact preview table of discovered agents (and toolkits if any)."""
-    preview = agents[:_TABLE_PREVIEW_MAX]
-    table = Table(
-        border_style=_SLATE,
-        show_header=True,
-        header_style="bold dim",
-        padding=(0, 1),
-        expand=False,
-        show_lines=True,
-    )
-    table.add_column("#", style="dim", width=3, no_wrap=True)
-    table.add_column("Agent ID", style="bold cyan", min_width=18, max_width=38, no_wrap=True, overflow="ellipsis")
-    table.add_column("Display Name", style="bold", min_width=14, max_width=28, no_wrap=True, overflow="ellipsis")
-    table.add_column("Description", min_width=20, max_width=44, no_wrap=True, overflow="ellipsis")
-    table.add_column("Model", style="dim", min_width=10, max_width=28, no_wrap=True, overflow="ellipsis")
-    for i, a in enumerate(preview, 1):
-        table.add_row(
-            str(i),
-            a.name,
-            a.display_name or "—",
-            a.description or "—",
-            a.llm or "—",
-        )
-    console.print(table)
-    if len(agents) > _TABLE_PREVIEW_MAX:
-        console.print(
-            f"  [dim]… and {len(agents) - _TABLE_PREVIEW_MAX} more — "
-            "all will appear in the selection list below.[/dim]"
-        )
-
-    if toolkits:
-        tk_table = Table(
-            border_style=_SLATE,
-            show_header=True,
-            header_style="bold dim",
-            padding=(0, 1),
-            expand=False,
-            title="[dim]Available toolkits[/dim]",
-        )
-        tk_table.add_column("Toolkit Name", style="bold", min_width=20, max_width=42, no_wrap=True, overflow="ellipsis")
-        tk_table.add_column("Type", style="dim", min_width=12, max_width=24, no_wrap=True)
-        for tk in toolkits:
-            tk_table.add_row(tk.name, tk.kind or "—")
-        console.print(tk_table)
 
 
 # ---------------------------------------------------------------------------
@@ -935,186 +1289,247 @@ def _push_solutions_to_copilot(solutions, config) -> list[tuple[str, bool, str]]
     return outcomes
 
 
-def _orchestrate_source_wizard() -> None:
+def _orchestrate_source_wizard(target: str) -> bool:
     """Auto-discover and migrate agents starting from a watsonx Orchestrate instance.
 
-    Discovery-first flow:
+    Discovery-first flow (steps 1-6 are a back-navigable question sequence;
+    step 7 is the actual migration run, which -- like the manual wizard's
+    pipeline -- is not back-navigable once started):
       1. Source Orchestrate credentials (URL + API key + workspace ID)
       2. Connect to source instance (IAM token exchange + REST probe)
       3. Discover agents + toolkits
       4. User selects agents to export
-      5. Configure LLM + target credentials
-      6. Expand collaborator graph → migrate leaf-first (Import→Map→Translate→Validate→Export) → deploy/save
+      5. Target credentials / Copilot Studio (PAC) connection
+      6. LLM settings
+      7. Expand collaborator graph → migrate leaf-first (Import→Map→Translate→Validate→Export) → deploy/save
+
+    `target` is already chosen by _auto_wizard (along with the source), so
+    this flow never re-asks where the agents are going. Returns True if the
+    user backed out of step 1 entirely (the caller should return to corridor
+    selection instead of exiting).
     """
     from wheatear.connectors.orchestrate import adk_client as adk
     from wheatear.connectors.orchestrate.importer import import_agent as orch_import_agent
 
     saved_config = load_config()
-    TOTAL_STEPS = 6
+    # Export-only stops after picking agents -- promising steps that will
+    # never be shown just makes the progress marker lie.
+    TOTAL = 4 if target == "export-only" else 7
+    answers: dict = {"target": target}
+    step = 1
 
-    # ── Step 1: Source Orchestrate credentials ────────────────────────────────
-    _step_header(1, TOTAL_STEPS, "Source Orchestrate credentials")
-    src_creds = ask_orchestrate_source_credentials(saved_config)
+    def _retry_or_back_or_exit() -> str:
+        """Shown after a network step fails. Returns 'back' or exits."""
+        action = questionary.select(
+            "What next?",
+            choices=[
+                questionary.Choice("◀ Try different credentials", value="back"),
+                questionary.Choice("Exit", value="exit"),
+            ],
+        ).ask()
+        if _cancelled(action) or action == "exit":
+            raise SystemExit(1)
+        return "back"
 
-    # ── Step 2: Connect to source instance ───────────────────────────────────
-    _step_header(2, TOTAL_STEPS, "Connect to Orchestrate")
-
-    ok = False
-    err = ""
-    for _attempt in range(3):
-        with console.status("  Authenticating with IBM IAM…"):
-            ok, err = adk.probe_connection(
-                api_key=src_creds.api_key,
-                instance_url=src_creds.instance_url,
-                workspace_id=src_creds.workspace_id,
+    while True:
+        if step == 1:
+            _clear_step(1, TOTAL, "Source Orchestrate credentials")
+            existing_src_creds = answers.get("src_creds")
+            src_creds = ask_orchestrate_source_credentials(
+                saved_config, allow_back=True, back_label="◀ Back to target platform",
+                default_url=existing_src_creds.instance_url if existing_src_creds else None,
+                default_workspace=existing_src_creds.workspace_id if existing_src_creds else None,
             )
-        if ok:
+            if src_creds is BACK:
+                return True
+            answers["src_creds"] = src_creds
+            step = 2
+
+        elif step == 2:
+            _clear_step(2, TOTAL, "Connect to Orchestrate")
+            src_creds = answers["src_creds"]
+            ok = False
+            err = ""
+            for _attempt in range(3):
+                with console.status("  Authenticating with IBM IAM…"):
+                    ok, err = adk.probe_connection(
+                        api_key=src_creds.api_key,
+                        instance_url=src_creds.instance_url,
+                        workspace_id=src_creds.workspace_id,
+                    )
+                if ok:
+                    break
+                is_timeout = "timed out" in err.lower() or "timeout" in err.lower()
+                console.print(
+                    Panel(
+                        f"[bold]{err[:300]}[/bold]\n\n"
+                        + ("IBM Cloud APIs can be slow — retrying automatically…" if is_timeout else
+                           "Check your Service Instance URL and API key."),
+                        title="[bold red]Connection failed[/bold red]",
+                        border_style="red",
+                    )
+                )
+                if not is_timeout:
+                    break
+                retry = questionary.confirm("Retry connection?", default=True).ask()
+                if not retry:
+                    break
+            if not ok:
+                _retry_or_back_or_exit()
+                step = 1
+                continue
+
+            console.print(
+                Panel(
+                    f"  [green]✓[/green]  Connected to [bold]{src_creds.instance_url}[/bold]",
+                    title="[bold]Orchestrate Source Connection[/bold]",
+                    border_style=_SLATE,
+                    expand=False,
+                )
+            )
+            questionary.press_any_key_to_continue("Press any key to continue...").ask()
+            step = 3
+
+        elif step == 3:
+            _clear_step(3, TOTAL, "Discover agents & toolkits")
+            src_creds = answers["src_creds"]
+            try:
+                with console.status("  Fetching agents via REST API…"):
+                    agents = adk.list_agents(
+                        api_key=src_creds.api_key,
+                        instance_url=src_creds.instance_url,
+                        workspace_id=src_creds.workspace_id,
+                    )
+            except Exception as exc:
+                console.print(
+                    Panel(
+                        f"[bold]{exc}[/bold]\n\n"
+                        "Check that the API key has read access to this instance.",
+                        title="[bold red]Could not list agents[/bold red]",
+                        border_style="red",
+                    )
+                )
+                _retry_or_back_or_exit()
+                step = 1
+                continue
+
+            toolkits = []
+            try:
+                with console.status("  Fetching toolkits…"):
+                    toolkits = adk.list_toolkits(
+                        api_key=src_creds.api_key,
+                        instance_url=src_creds.instance_url,
+                        workspace_id=src_creds.workspace_id,
+                    )
+            except Exception:
+                pass
+
+            if not agents:
+                console.print(
+                    Panel(
+                        "No agents were found in this Orchestrate environment.\n\n"
+                        "Make sure you are connected to the correct instance and that\n"
+                        "agents have been created or imported there.",
+                        title="[yellow]No agents found[/yellow]",
+                        border_style="yellow",
+                    )
+                )
+                _retry_or_back_or_exit()
+                step = 1
+                continue
+
+            answers["agents"] = agents
+            answers["toolkits"] = toolkits
+            step = 4
+
+        elif step == 4:
+            agents = answers["agents"]
+            toolkits = answers["toolkits"]
+
+            def _agent_label(a) -> str:
+                return (
+                    (a.display_name or a.name)
+                    + (f"  [{a.name}]" if a.display_name else "")
+                    + (f"  —  {a.description[:50]}" if a.description else "")
+                )
+
+            existing_selection = answers.get("selected_agents")
+            selected_agents = _multiselect_menu(
+                "Select agent(s) to migrate  (Enter toggles a row; choose Confirm when done):",
+                agents,
+                _agent_label,
+                back_label="◀ Back to credentials",
+                key_fn=lambda a: a.name,
+                preselected={a.name for a in existing_selection} if existing_selection else None,
+                redraw=lambda: _clear_step(4, TOTAL, "Select agents to migrate"),
+                noun="agent",
+                context=f"{len(toolkits)} toolkit(s)" if toolkits else "",
+            )
+            if selected_agents is BACK:
+                step = 1
+                continue
+            answers["selected_agents"] = selected_agents
+
+            # ── Export-only shortcut (no pipeline, no LLM, no target creds) ──
+            if target == "export-only":
+                _run_export_only(answers["src_creds"], selected_agents, adk)
+                return False
+            step = 5
+
+        elif step == 5:
+            if target == "orchestrate":
+                _clear_step(5, TOTAL, "Target credentials")
+                existing_target_creds = answers.get("orchestrate_creds")
+                creds = ask_orchestrate_credentials(
+                    saved_config, allow_back=True,
+                    default_url=existing_target_creds.instance_url if existing_target_creds else None,
+                )
+                if creds is BACK:
+                    step = 4
+                    continue
+                answers["orchestrate_creds"] = creds
+
+            elif target == "copilot-studio":
+                _clear_step(5, TOTAL, "Copilot Studio connection")
+                from wheatear.connectors.copilot_studio import pac_client as pac
+                pac_account = _ensure_pac_auth(pac)
+                with console.status("  Reading PAC CLI version…", spinner="dots"):
+                    _, pac_version = pac.check()
+                console.print(
+                    Panel(
+                        f"  [green]✓[/green]  PAC CLI  {pac_version}\n"
+                        f"  [green]✓[/green]  Signed in as [bold]{pac_account}[/bold]",
+                        title="[bold]Copilot Studio — PAC connection[/bold]",
+                        border_style=_SLATE,
+                        expand=False,
+                    )
+                )
+                flush_input()
+                questionary.press_any_key_to_continue("Press any key to continue...").ask()
+                answers["orchestrate_creds"] = None
+            else:
+                answers["orchestrate_creds"] = None
+            step = 6
+
+        else:  # step == 6
+            _clear_step(6, TOTAL, "LLM settings (for later use)")
+            existing_llm = answers.get("llm_config")
+            llm_config = ask_llm_settings(
+                saved_config, allow_back=True,
+                default=existing_llm.llm_provider if existing_llm else None,
+            )
+            if llm_config is BACK:
+                step = 5
+                continue
+            answers["llm_config"] = llm_config
             break
-        is_timeout = "timed out" in err.lower() or "timeout" in err.lower()
-        console.print(
-            Panel(
-                f"[bold]{err[:300]}[/bold]\n\n"
-                + ("IBM Cloud APIs can be slow — retrying automatically…" if is_timeout else
-                   "Check your Service Instance URL and API key."),
-                title="[bold red]Connection failed[/bold red]",
-                border_style="red",
-            )
-        )
-        if not is_timeout:
-            break
-        retry = questionary.confirm("Retry connection?", default=True).ask()
-        if not retry:
-            break
-    if not ok:
-        raise SystemExit(1)
 
-    console.print(
-        Panel(
-            f"  [green]✓[/green]  Connected to [bold]{src_creds.instance_url}[/bold]",
-            title="[bold]Orchestrate Source Connection[/bold]",
-            border_style=_SLATE,
-            expand=False,
-        )
-    )
+    src_creds = answers["src_creds"]
+    agents = answers["agents"]
+    selected_agents = answers["selected_agents"]
+    orchestrate_creds: OrchestrateCredentials | None = answers["orchestrate_creds"]
+    llm_config = answers["llm_config"]
 
-    # ── Step 3: Discover agents + toolkits ───────────────────────────────────
-    _step_header(3, TOTAL_STEPS, "Discover agents & toolkits")
-    try:
-        with console.status("  Fetching agents via REST API…"):
-            agents = adk.list_agents(
-                api_key=src_creds.api_key,
-                instance_url=src_creds.instance_url,
-                workspace_id=src_creds.workspace_id,
-            )
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold]{exc}[/bold]\n\n"
-                "Check that the API key has read access to this instance.",
-                title="[bold red]Could not list agents[/bold red]",
-                border_style="red",
-            )
-        )
-        raise SystemExit(1) from exc
-
-    toolkits = []
-    try:
-        with console.status("  Fetching toolkits…"):
-            toolkits = adk.list_toolkits(
-                api_key=src_creds.api_key,
-                instance_url=src_creds.instance_url,
-                workspace_id=src_creds.workspace_id,
-            )
-    except Exception:
-        pass
-
-    if not agents:
-        console.print(
-            Panel(
-                "No agents were found in this Orchestrate environment.\n\n"
-                "Make sure you are connected to the correct instance and that\n"
-                "agents have been created or imported there.",
-                title="[yellow]No agents found[/yellow]",
-                border_style="yellow",
-            )
-        )
-        raise SystemExit(0)
-
-    console.print(
-        f"\n  [dim]{len(agents)} agent(s){f' · {len(toolkits)} toolkit(s)' if toolkits else ''}"
-        f" found:[/dim]\n"
-    )
-    _show_agents_table(agents, toolkits)
-    console.print()
-
-    # ── Step 4: Select agents to export ──────────────────────────────────────
-    _step_header(4, TOTAL_STEPS, "Select agents to migrate")
-    selected_agents = questionary.checkbox(
-        "Select agent(s) to migrate:",
-        choices=[
-            questionary.Choice(
-                (a.display_name or a.name)
-                + (f"  [{a.name}]" if a.display_name else "")
-                + (f"  —  {a.description[:50]}" if a.description else ""),
-                value=a,
-                checked=False,
-            )
-            for a in agents
-        ],
-    ).ask()
-    if _cancelled(selected_agents) or not selected_agents:
-        console.print("[yellow]No agents selected.[/yellow]")
-        raise SystemExit(0)
-
-    # ── Step 5: Configure translation & target ────────────────────────────────
-    _step_header(5, TOTAL_STEPS, "Configure translation & target")
-
-    # Show all target platforms except the source. Coming-soon ones are visible
-    # (so the user can see the roadmap) but disabled — only implemented targets
-    # are selectable.
-    _target_choices = [
-        questionary.Choice("Export raw YAML to folder (no migration)", value="export-only"),
-    ] + [
-        questionary.Choice(name, value=key)
-        if impl
-        else questionary.Choice(f"{name} (coming soon)", value=key, disabled="not yet implemented")
-        for name, key, impl in TARGET_PLATFORMS
-        if key != "orchestrate"  # exclude same platform as source
-    ]
-    target = questionary.select(
-        "Migrate agents to which platform?",
-        choices=_target_choices,
-    ).ask()
-    if _cancelled(target):
-        raise SystemExit(1)
-
-    # ── Export-only shortcut (no pipeline, no LLM, no target credentials) ────
-    if target == "export-only":
-        _run_export_only(src_creds, selected_agents, adk)
-        return
-
-    # ── Target credentials ────────────────────────────────────────────────────
-    orchestrate_creds: OrchestrateCredentials | None = None
-    pac_account: str | None = None
-
-    if target == "orchestrate":
-        orchestrate_creds = ask_orchestrate_credentials(saved_config)
-
-    elif target == "copilot-studio":
-        from wheatear.connectors.copilot_studio import pac_client as pac
-        pac_version = _ensure_pac(pac)
-        pac_account = _ensure_pac_auth(pac)
-        console.print(
-            Panel(
-                f"  [green]✓[/green]  PAC CLI  {pac_version}\n"
-                f"  [green]✓[/green]  Signed in as [bold]{pac_account}[/bold]",
-                title="[bold]Copilot Studio — PAC connection[/bold]",
-                border_style=_SLATE,
-                expand=False,
-            )
-        )
-
-    llm_config = ask_llm_settings(saved_config)
     final_config = _build_final_config(llm_config, orchestrate_creds, saved_config, src_creds)
     if config_changed(final_config, saved_config):
         save_config(final_config)
@@ -1146,8 +1561,8 @@ def _orchestrate_source_wizard() -> None:
             orchestrate_creds,
         )
 
-        # ── Step 6: Export → pipeline → deploy ───────────────────────────────────
-        _step_header(6, TOTAL_STEPS, f"Export & migrate → {target}")
+        # ── Step 8: Export → pipeline → deploy ───────────────────────────────────
+        _step_header(8, TOTAL, f"Export & migrate → {target}")
         results: list[tuple[str, bool, str]] = []
         copilot_solutions: list[tuple[str, Path]] = []  # (name, solution_dir) to push via PAC
         _BOT_STAGES = 6 + (1 if deploy else 0)
@@ -1314,6 +1729,8 @@ def _orchestrate_source_wizard() -> None:
             mark = "[green]✓[/green]" if ok else "[red]✗[/red]"
             console.print(f"  {mark} {name} — {detail}")
 
+    return False
+
 
 # ---------------------------------------------------------------------------
 # Auto wizard — PAC CLI path (Copilot Studio → Orchestrate)
@@ -1404,21 +1821,83 @@ def _build_agent_choices(scanned: list[ScannedSolution]) -> list:
     return choices
 
 
-def _auto_wizard() -> None:
-    """Auto-discover and migrate agents.
+def _auto_wizard() -> bool:
+    """Pick the corridor -- source platform, then target platform -- check
+    the tooling that corridor needs, then hand off to the sub-wizard for
+    that source.
 
-    Dispatches to the correct source-platform sub-wizard based on user choice.
+    Both halves of the corridor are asked here, back to back, because they
+    are one decision: "migrate from X to Y". Asking for the target again
+    partway through a sub-wizard made the user re-answer something they'd
+    already settled, several screens after the fact.
+
+    Returns True if the user backed all the way out to migration-mode
+    selection.
     """
-    source = ask_source_platform()
+    source = None
+    target = None
+    step = 1
 
-    if source == "orchestrate":
-        _orchestrate_source_wizard()
-        return
+    while True:
+        if step == 1:
+            _clear_section("Migrating from")
+            source = ask_source_platform(
+                allow_back=True, back_label="◀ Back to migration mode", default=source
+            )
+            if source is BACK:
+                return True
+            step = 2
 
-    _copilot_studio_auto_wizard(source)
+        elif step == 2:
+            _clear_section("Migrating to")
+            # Orchestrate-sourced runs can skip migration entirely and just
+            # pull the raw YAML down; that's a destination choice, so it
+            # belongs in this list rather than buried mid-flow.
+            extra = (
+                [questionary.Choice("Export raw YAML to folder (no migration)", value="export-only")]
+                if source == "orchestrate"
+                else []
+            )
+            target = ask_target_platform(
+                exclude_source_key=source,
+                allow_back=True,
+                back_label="◀ Back to source platform",
+                default=target,
+                extra_choices=extra,
+            )
+            if target is BACK:
+                step = 1
+                continue
+            if target != "export-only":
+                validate_corridor(source, target)
+            step = 3
+
+        else:
+            # Corridor tooling (PAC + its .NET prerequisite, the Orchestrate
+            # CLI for deploys) is knowable the moment both ends are chosen,
+            # so check it before any credential prompt or discovery call --
+            # a missing dependency surfaces as a checklist rather than a raw
+            # exception deep inside the pipeline.
+            if not ensure_corridor_tools(
+                source,
+                target,
+                deploy_to_orchestrate=(target == "orchestrate"),
+                back_label="◀ Back to target platform",
+            ):
+                step = 2
+                continue
+
+            if source == "orchestrate":
+                went_back = _orchestrate_source_wizard(target)
+            else:
+                went_back = _copilot_studio_auto_wizard(source, target)
+            if went_back:
+                step = 2
+                continue
+            return False
 
 
-def _copilot_studio_auto_wizard(source: str) -> None:
+def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
     """Auto-discover and migrate agents using the PAC CLI.
 
     Discovery-first flow:
@@ -1428,11 +1907,12 @@ def _copilot_studio_auto_wizard(source: str) -> None:
       4. From scan results: user picks specific agents grouped by solution
       5. Configure LLM for translation
       6. Pipeline: Slice → Extract → Map → Translate → Validate → Export → Deploy
+
+    `source`/`target` are already chosen (and their tooling already checked)
+    by _auto_wizard. Returns True if the user backed out to the corridor
+    selection instead of proceeding.
     """
     from wheatear.connectors.copilot_studio import pac_client as pac
-
-    target = ask_target_platform(exclude_source_key=source)
-    validate_corridor(source, target)
 
     saved_config = load_config()
     deploy = target == "orchestrate"
@@ -1445,8 +1925,9 @@ def _copilot_studio_auto_wizard(source: str) -> None:
 
     # ── Step 2: Connect to Power Platform ────────────────────────────────────
     _step_header(2, 6, "Connect to Power Platform")
-    pac_version = _ensure_pac(pac)
     pac_account = _ensure_pac_auth(pac)
+    with console.status("  Reading PAC CLI version…", spinner="dots"):
+        _, pac_version = pac.check()
     _show_connection_panel(pac_version, pac_account, orchestrate_creds)
 
     # ── Step 3: Browse solutions → select → scan ──────────────────────────────
@@ -1589,7 +2070,7 @@ def _copilot_studio_auto_wizard(source: str) -> None:
                     prog.advance(t)
 
                     prog.update(t, description=f"  [dim][2/{_BOT_STAGES}][/dim]  Extract  reading Copilot Studio export")
-                    import_result = import_agent(bot_slice_dir)
+                    import_result = copilot_import_agent(bot_slice_dir)
                     prog.advance(t)
 
                     prog.update(t, description=f"  [dim][3/{_BOT_STAGES}][/dim]  Map  resolving tools, connections & knowledge")
@@ -1663,62 +2144,14 @@ def _copilot_studio_auto_wizard(source: str) -> None:
     finally:
         shutil.rmtree(scan_base, ignore_errors=True)
 
-
-def _ensure_pac(pac) -> str:
-    """Check PAC CLI is installed; offer to install if missing. Returns version string."""
-    found, version = pac.check()
-    if found:
-        return version
-
-    console.print(
-        Panel(
-            "[bold]Microsoft Power Platform CLI (pac) is required.[/bold]\n\n"
-            "Wheatear can install it now with:\n\n"
-            f"  [cyan]{pac.install_guide()}[/cyan]\n\n"
-            "[dim]Requires the .NET SDK — download from https://dot.net/download if missing.[/dim]",
-            title="[bold yellow]PAC CLI not found[/bold yellow]",
-            border_style="yellow",
-        )
-    )
-    do_install = questionary.confirm("Install the PAC CLI now?", default=True).ask()
-    if _cancelled(do_install) or not do_install:
-        raise SystemExit(1)
-
-    try:
-        with console.status(f"  Running {pac.install_guide()}…"):
-            pac.install()
-    except Exception as exc:
-        console.print(
-            Panel(
-                f"[bold]{exc}[/bold]\n\n"
-                f"Try running manually:\n  [cyan]{pac.install_guide()}[/cyan]",
-                title="[bold red]Install failed[/bold red]",
-                border_style="red",
-            )
-        )
-        raise SystemExit(1) from exc
-
-    found, version = pac.check()
-    if not found:
-        tools_path = pac.dotnet_tools_path()
-        console.print(
-            Panel(
-                f"The install succeeded but [bold]pac[/bold] is still not found.\n\n"
-                f"Add the dotnet tools directory to your shell's PATH and re-run:\n\n"
-                f"  [cyan]export PATH=\"{tools_path}:$PATH\"[/cyan]",
-                title="[bold red]pac not on PATH[/bold red]",
-                border_style="red",
-            )
-        )
-        raise SystemExit(1)
-
-    console.print(f"  [green]✓[/green]  PAC CLI {version} installed")
-    return version
+    return False
 
 
 def _ensure_pac_auth(pac) -> str:
     """Check PAC auth; run device code flow in TUI if needed. Returns account name."""
-    authed, account = pac.auth_status()
+    # `pac auth list` is a .NET cold start -- seconds of nothing without this.
+    with console.status("  Checking your Power Platform sign-in…", spinner="dots"):
+        authed, account = pac.auth_status()
     if authed:
         return account
 
@@ -1846,25 +2279,40 @@ def _run_export_only(src_creds: "OrchestrateSrcCredentials", selected_agents: li
 # ---------------------------------------------------------------------------
 
 def run_wizard() -> None:
-    print_banner(console)
-
-    mode = questionary.select(
-        "How do you want to migrate?",
-        choices=[
-            questionary.Choice(
-                "Auto — connect to source platform, discover all agents, migrate & deploy",
-                value="auto",
-            ),
-            questionary.Choice(
-                "Manual — provide a local path or GitHub URL to an existing export",
-                value="manual",
-            ),
-        ],
-    ).ask()
-    if _cancelled(mode):
-        raise SystemExit(1)
-
-    if mode == "auto":
-        _auto_wizard()
+    saved_config = load_config()
+    if needs_onboarding(saved_config):
+        run_onboarding(saved_config)
     else:
-        _manual_wizard()
+        print_banner(console)
+
+    while True:
+        flush_input()
+        mode = questionary.select(
+            "How do you want to migrate?",
+            choices=[
+                questionary.Choice(
+                    "Auto — connect to source platform, discover all agents, migrate & deploy",
+                    value="auto",
+                ),
+                questionary.Choice(
+                    "Manual — provide a local path or GitHub URL to an existing export",
+                    value="manual",
+                ),
+                questionary.Separator(),
+                questionary.Choice("Quit", value="quit"),
+            ],
+        ).ask()
+        if _cancelled(mode):
+            raise SystemExit(1)
+        if mode == "quit":
+            # Chosen deliberately, so this is a successful run -- unlike the
+            # Ctrl-C path above, which keeps its non-zero status.
+            console.print("  [dim]Bye.[/dim]")
+            raise SystemExit(0)
+
+        went_back = _auto_wizard() if mode == "auto" else _manual_wizard()
+        if went_back:
+            console.clear()
+            print_banner(console)
+            continue
+        return
