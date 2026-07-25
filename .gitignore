@@ -9,6 +9,7 @@ copilot-export/
 engine/Incident_Managementagent_*-export.*
 engine/copilot-studio-migration/
 engine/exports/
+engine/orchestrate-exports/
 orch.md
 test-export.zip
 
@@ -18,3 +19,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 *.pyc
+
+# IDE / OS local files
+.vscode/
+.idea/
+*.swp
+.env
+.env.*
