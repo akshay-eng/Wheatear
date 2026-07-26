@@ -3,6 +3,10 @@
 .impeccable/
 DESIGN.md
 
+# Internal development notes -- session handoffs and working briefs.
+HANDOFF.md
+claude.md
+
 # Real customer exports used for calibration -- never commit these.
 # (agent exports + migration outputs carry internal endpoints/instructions)
 copilot-export/

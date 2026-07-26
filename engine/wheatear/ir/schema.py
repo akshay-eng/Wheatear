@@ -77,6 +77,11 @@ class BridgeStrategy(str, Enum):
     NATIVE_MCP = "native_mcp"  # re-point an existing MCP endpoint (cleanest)
     OPENAPI = "openapi"  # convert an OpenAPI spec into an Orchestrate tool
     MCP_CATALOG = "mcp_catalog"  # resolved via the curated connector catalog
+    # Matched a tool in the global catalog that is not installed on the target
+    # instance yet. Distinct from MCP_CATALOG because it is not importable as
+    # it stands: the tool must be added to the instance first, so this always
+    # carries an install step into the review manifest.
+    CATALOG_INSTALL = "catalog_install"
     MANUAL = "manual"  # no confident mapping; human must implement
 
 
@@ -93,6 +98,18 @@ class Guideline(BaseModel):
     tool_ref: str | None = None
 
 
+class ToolParameter(BaseModel):
+    """One input or output of a tool, with the description the source platform
+    gave its own model. Carried through the IR because it's what a capability
+    match is actually judged on -- and what a generated bridge has to
+    reproduce.
+    """
+
+    name: str
+    description: str | None = None
+    type: str | None = None
+
+
 class ToolRef(BaseModel):
     """A connector, custom action, or flow reference mapped to a tool on the
     target platform. Populated by the deterministic Map stage.
@@ -105,6 +122,17 @@ class ToolRef(BaseModel):
     notes: str | None = None
     kind: ToolKind = ToolKind.UNKNOWN
     bridge: BridgeStrategy | None = None
+
+    # What the tool does, as the source platform described it, plus the
+    # operation and connector it was bound to. Preserved so a reviewer (or a
+    # later resolver) has the full signature and doesn't have to go back to
+    # the source export to find out what "GetRecord" meant.
+    description: str | None = None
+    operation_id: str | None = None
+    # Power Platform connector id, e.g. ".../apis/shared_service-now".
+    connector_id: str | None = None
+    inputs: list[ToolParameter] = Field(default_factory=list)
+    outputs: list[ToolParameter] = Field(default_factory=list)
     # For MCP-backed tools: the server endpoint + transport. MCP is the one
     # tool type both platforms consume natively, so carrying the URL makes it a
     # clean migration (re-point the endpoint) rather than a manual rebuild.
@@ -139,6 +167,10 @@ class KnowledgeRef(BaseModel):
     review_required: bool = False
     notes: str | None = None
     ingest_plan: IngestPlan | None = None
+    # Absolute path to the extracted document, for file-backed sources that
+    # shipped inside the source export. Present means the content is in hand
+    # and can actually be uploaded; absent means only the reference survived.
+    file_path: str | None = None
 
 
 class ConnectionRef(BaseModel):

@@ -832,6 +832,74 @@ def _translate_stage(agent, provider) -> None:
         translate_agent(agent, provider)
 
 
+def _fetch_target_catalog(creds) -> list:
+    """Read the target instance's tool catalog once per run, for the Resolve
+    stage to match against.
+
+    Returns [] on any failure: not being able to read the catalog costs
+    automatic tool resolution (everything falls back to the review manifest),
+    which is a degraded migration rather than a failed one.
+    """
+    if creds is None:
+        return []
+    try:
+        from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient
+        from wheatear.pipeline.resolve import build_catalog
+
+        client = OrchestrateRestClient(
+            os.environ.get(creds.api_key_env, ""), creds.instance_url
+        )
+        return build_catalog(client.list_all_tools())
+    except Exception:
+        return []
+
+
+def _fetch_marketplace_catalog(creds):
+    """Read the global catalog of installable tools, once per run.
+
+    Separate from `_fetch_target_catalog` because it's a separate service with
+    its own auth (see connectors/orchestrate/catalog_client.py). Returns an
+    empty pool on any failure: without it Resolve simply matches against
+    installed tools only, which is what it did before this tier existed.
+
+    Also returns an enrich hook, which fetches parameter schemas for the few
+    candidates that reach adjudication.
+    """
+    if creds is None:
+        return [], None
+    try:
+        from wheatear.connectors.orchestrate.catalog_client import (
+            COOKIE_ENV,
+            OrchestrateCatalogClient,
+            enrich_artifacts,
+            to_artifacts,
+        )
+        from wheatear.pipeline.resolve import build_marketplace_catalog
+
+        cookie = os.environ.get(COOKIE_ENV)
+        auth = {"session_cookie": cookie} if cookie else {
+            "api_key": os.environ.get(creds.api_key_env, "")
+        }
+        client = OrchestrateCatalogClient(creds.instance_url, **auth)
+        pool = build_marketplace_catalog(to_artifacts(client.list_installable()))
+        return pool, lambda artifacts: enrich_artifacts(client, artifacts)
+    except Exception:
+        return [], None
+
+
+def _resolve_stage(agent, catalog, provider, marketplace=None, enrich=None) -> None:
+    """Match tools Map couldn't resolve against the target's real tools.
+
+    Skipped entirely without a catalog, so a run with no target credentials
+    behaves exactly as it did before this stage existed.
+    """
+    if not catalog and not marketplace:
+        return
+    from wheatear.pipeline.resolve import resolve_agent_tools
+
+    resolve_agent_tools(agent, catalog, provider, marketplace=marketplace, enrich=enrich)
+
+
 def _export_for_target(agent, target: str, output_dir: Path):
     """Export via the platform registry so the correct exporter runs for the
     chosen target (Orchestrate *or* Copilot Studio). This is what makes the
@@ -2038,7 +2106,22 @@ def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
         _show_migration_plan(agent_names, sol_names, final_config, output_base, orchestrate_creds)
 
         results: list[tuple[str, bool, str]] = []
-        _BOT_STAGES = 6 + (1 if deploy and orchestrate_creds else 0)
+        # Read once for the whole run, not per agent: the catalog is the same
+        # for every bot and it's a network round-trip.
+        flush_input()
+        with console.status("  Reading your Orchestrate tool catalog…", spinner="dots"):
+            target_catalog = _fetch_target_catalog(orchestrate_creds)
+            marketplace_catalog, marketplace_enrich = _fetch_marketplace_catalog(orchestrate_creds)
+        if target_catalog:
+            console.print(
+                f"  [dim]{len(target_catalog)} tool(s) installed on the target for matching.[/dim]"
+            )
+        if marketplace_catalog:
+            console.print(
+                f"  [dim]{len(marketplace_catalog)} tool(s) installable from the catalog "
+                "(matched second; each hit becomes an install step).[/dim]"
+            )
+        _BOT_STAGES = 7 + (1 if deploy and orchestrate_creds else 0)
 
         def _make_progress() -> Progress:
             return Progress(
@@ -2077,13 +2160,25 @@ def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
                     agent = map_agent(import_result, target_platform=target)
                     prog.advance(t)
 
+                    if target_catalog and marketplace_catalog:
+                        _rlabel = "matching tools to your instance, then the catalog"
+                    elif target_catalog or marketplace_catalog:
+                        _rlabel = "matching tools to your catalog"
+                    else:
+                        _rlabel = "skipped  (no target catalog)"
+                    prog.update(t, description=f"  [dim][4/{_BOT_STAGES}][/dim]  Resolve  {_rlabel}")
+                    _resolve_stage(
+                        agent, target_catalog, provider, marketplace_catalog, marketplace_enrich
+                    )
+                    prog.advance(t)
+
                     _tlabel = "carrying prompt over" if provider is None else f"{final_config.llm_provider} AI  (may take ~10 s)"
-                    prog.update(t, description=f"  [dim][4/{_BOT_STAGES}][/dim]  Translate  {_tlabel}")
+                    prog.update(t, description=f"  [dim][5/{_BOT_STAGES}][/dim]  Translate  {_tlabel}")
                     _translate_stage(agent, provider)
                     _confidence = getattr(agent, "translation_confidence", None)
                     prog.advance(t)
 
-                    prog.update(t, description=f"  [dim][5/{_BOT_STAGES}][/dim]  Validate  schema check + eval cases")
+                    prog.update(t, description=f"  [dim][6/{_BOT_STAGES}][/dim]  Validate  schema check + eval cases")
                     _validation = validate_agent(agent)
                     _cases = generate_cases(agent)
                     if not _validation.is_valid:
@@ -2094,13 +2189,13 @@ def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
                         raise RuntimeError(errs)
                     prog.advance(t)
 
-                    prog.update(t, description=f"  [dim][6/{_BOT_STAGES}][/dim]  Export  writing {target} output")
+                    prog.update(t, description=f"  [dim][7/{_BOT_STAGES}][/dim]  Export  writing {target} output")
                     agent_output_dir = output_base / _safe_dirname(bot_name)
                     _export_result = _export_for_target(agent, target, agent_output_dir)
                     prog.advance(t)
 
                     if deploy and orchestrate_creds:
-                        prog.update(t, description=f"  [dim][7/{_BOT_STAGES}][/dim]  Deploy  → watsonx Orchestrate")
+                        prog.update(t, description=f"  [dim][8/{_BOT_STAGES}][/dim]  Deploy  → watsonx Orchestrate")
                         from wheatear.connectors.orchestrate.deployer import deploy_agent
                         deploy_result = deploy_agent(
                             _export_result.agent_path,

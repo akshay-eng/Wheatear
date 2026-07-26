@@ -11,7 +11,8 @@ expect and have something useful to say about.
     ├── ImportError_              -- source export was recognized but unreadable
     ├── MapError                  -- reference resolution failed
     ├── TranslateError            -- the (optional) LLM stage failed
-    └── ExportError               -- writing the target artifact failed
+    ├── ExportError               -- writing the target artifact failed
+    └── RemoteAPIError            -- a live platform API rejected or refused us
 """
 
 from __future__ import annotations
@@ -43,3 +44,13 @@ class TranslateError(WheatearError):
 
 class ExportError(WheatearError):
     """The target artifact could not be written."""
+
+
+class RemoteAPIError(WheatearError):
+    """A live platform API call failed: bad credentials, an expired token, a
+    wrong instance URL, or the service refusing the request.
+
+    Distinct from the stage errors above because it says nothing about the
+    migration itself -- the user's export may be perfectly fine and the fix is
+    a credential or a URL, not a change to their agent.
+    """

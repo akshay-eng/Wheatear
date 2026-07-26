@@ -376,18 +376,26 @@ def create_bot_slice(sol_dir: Path, bot_schema: str, dest: Path) -> Path:
 
     Copies:
       solution.xml                 (shared metadata)
+      customizations.xml           (connection reference -> connector id map)
       bots/<bot_schema>/           (this bot only)
       botcomponents/<bot_schema>.* (only components belonging to this bot)
 
     Botcomponents belonging to a bot have schemanames that start with the bot's
     schemaname followed by a dot (e.g. bot "ai_HelperBee" owns components named
     "ai_HelperBee.gpt.default", "ai_HelperBee.topic.ConversationStart", etc.).
+
+    customizations.xml is solution-wide rather than per-bot, but it holds the
+    only mapping from a tool's connection reference to the Power Platform
+    connector behind it. Leaving it out cost every sliced import its connector
+    identity -- the difference between "connector shared_service-now" and an
+    unresolvable GUID -- so it comes along whole.
     """
     dest.mkdir(parents=True, exist_ok=True)
 
-    sol_xml = sol_dir / "solution.xml"
-    if sol_xml.exists():
-        shutil.copy2(sol_xml, dest / "solution.xml")
+    for shared in ("solution.xml", "customizations.xml"):
+        src = sol_dir / shared
+        if src.exists():
+            shutil.copy2(src, dest / shared)
 
     bot_src = sol_dir / "bots" / bot_schema
     if bot_src.is_dir():

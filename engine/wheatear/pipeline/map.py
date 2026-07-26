@@ -14,12 +14,85 @@ from __future__ import annotations
 
 from wheatear.connectors.base import ImportResult, RawToolRef
 from wheatear.errors import MapError
-from wheatear.ir.schema import Agent, BridgeStrategy, ConnectionRef, IngestPlan, KnowledgeRef, ToolKind, ToolRef
+from wheatear.ir.schema import (
+    Agent,
+    BridgeStrategy,
+    ConnectionRef,
+    IngestPlan,
+    KnowledgeRef,
+    ToolKind,
+    ToolParameter,
+    ToolRef,
+)
 
 # Known source-connector -> target-tool mappings. Intentionally near-empty for
 # v1: most connectors are org-specific with no universal equivalent. Real
 # mappings get added (per corridor) as they're validated against real exports.
 KNOWN_TOOL_MAPPINGS: dict[str, str] = {}
+
+# A custom connector's Power Platform id carries the publisher prefix with the
+# underscore percent-encoded, e.g. ".../apis/shared_cr3ea-5fservice-20now-...".
+# Microsoft's prebuilt connectors have no publisher prefix
+# (".../apis/shared_service-now"). The distinction matters because a custom
+# connector's OpenAPI definition is downloadable from the source tenant, while
+# a prebuilt one has to come from the connector catalog.
+_CUSTOM_CONNECTOR_MARKER = "-5f"
+
+
+def _params(raw_params) -> list[ToolParameter]:
+    return [
+        ToolParameter(name=p.name, description=p.description, type=p.type) for p in raw_params
+    ]
+
+
+def _connector_kind(connector_id: str | None) -> ToolKind:
+    if not connector_id:
+        return ToolKind.UNKNOWN
+    tail = connector_id.rsplit("/", 1)[-1]
+    return ToolKind.CUSTOM_CONNECTOR if _CUSTOM_CONNECTOR_MARKER in tail else ToolKind.CONNECTOR
+
+
+def _connector_tool(raw: RawToolRef) -> ToolRef:
+    """A Power Platform connector operation bound to the source agent.
+
+    Both prebuilt and custom connectors are OpenAPI underneath, so the bridge
+    is a spec conversion rather than a hand-rebuild -- but the spec still has
+    to be fetched and the tool created on the target, so this stays
+    review_required until that actually happens. The full signature travels
+    with it so whoever (or whatever) resolves it next doesn't need the
+    original export.
+    """
+    kind = _connector_kind(raw.connector_id)
+    connector_name = (raw.connector_id or "").rsplit("/", 1)[-1] or "unknown connector"
+    operation = raw.operation_id or raw.name
+
+    if kind == ToolKind.CUSTOM_CONNECTOR:
+        detail = (
+            f"Custom connector '{connector_name}' operation '{operation}'. Its OpenAPI definition "
+            "can be exported from the source tenant (pac connector download) and imported as an "
+            "Orchestrate OpenAPI tool."
+        )
+    else:
+        detail = (
+            f"Prebuilt Power Platform connector '{connector_name}' operation '{operation}'. Needs "
+            "an equivalent Orchestrate tool -- either an existing toolkit that covers the same "
+            "operation, or an OpenAPI/MCP tool built against the same backend."
+        )
+
+    return ToolRef(
+        ref=raw.name,
+        source_ref=raw.source_ref or raw.name,
+        kind=kind,
+        bridge=BridgeStrategy.OPENAPI,
+        confidence=0.0,
+        review_required=True,
+        notes=detail,
+        description=raw.description,
+        operation_id=raw.operation_id,
+        connector_id=raw.connector_id,
+        inputs=_params(raw.inputs),
+        outputs=_params(raw.outputs),
+    )
 
 
 def map_agent(import_result: ImportResult, target_platform: str = "orchestrate") -> Agent:
@@ -73,6 +146,8 @@ def _map_to_orchestrate(import_result: ImportResult) -> Agent:
     for raw in import_result.raw_tools:
         if raw.kind == "mcp":
             agent.tools.append(_mcp_tool(raw))
+        elif raw.kind == "connector":
+            agent.tools.append(_connector_tool(raw))
         else:
             agent.tools.append(
                 ToolRef(
@@ -104,7 +179,25 @@ def _map_to_orchestrate(import_result: ImportResult) -> Agent:
             )
 
     for raw_knowledge in import_result.raw_knowledge_refs:
-        if raw_knowledge.source_kind:
+        if raw_knowledge.file_path is not None:
+            # The document itself came across in the export, so this is a real
+            # upload rather than a re-ingestion project. Still flagged for
+            # review: Orchestrate enforces a size cap and the human picks which
+            # knowledge base receives it.
+            agent.knowledge.append(
+                KnowledgeRef(
+                    ref=raw_knowledge.name,
+                    source_ref=raw_knowledge.name,
+                    review_required=True,
+                    ingest_plan=IngestPlan.UPLOAD,
+                    file_path=str(raw_knowledge.file_path),
+                    notes=(
+                        f"File '{raw_knowledge.file_path.name}' shipped with the source export; "
+                        "upload it into an Orchestrate knowledge base (mind the 30MB cap)."
+                    ),
+                )
+            )
+        elif raw_knowledge.source_kind:
             # An external connector-backed source (e.g. SharePoint search) --
             # real content that needs re-ingestion into an Orchestrate
             # knowledge base, not a reference Wheatear can just copy over.
