@@ -6,12 +6,20 @@ DESIGN.md
 # Real customer exports used for calibration -- never commit these.
 # (agent exports + migration outputs carry internal endpoints/instructions)
 copilot-export/
+/copilot-studio-migration/
 engine/Incident_Managementagent_*-export.*
 engine/copilot-studio-migration/
 engine/exports/
 engine/orchestrate-exports/
 orch.md
 test-export.zip
+
+# n8n exploration artifacts -- workflow exports, KB source files, generated
+# reference docs. Not part of the corridor engine itself.
+hr-agentassets/
+n8n-export/
+n8n-export.zip
+n8n-feature-matrix/
 
 # Python
 engine/.venv/

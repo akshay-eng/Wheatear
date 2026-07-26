@@ -67,5 +67,19 @@ def classify_tier(model_hint: str | None) -> ModelTier:
 
 
 def resolve_target_model(model_hint: str | None) -> str:
-    """Map a source model name to the best Orchestrate model in its tier."""
+    """Map a source model name to the best Orchestrate model in its tier.
+
+    Static and zero-dependency by design -- works with no network access and
+    no target-platform credentials, which is why the exporter still calls
+    this by default. It has a real correctness gap the static table can't
+    fix on its own: the returned model may not actually be enabled on the
+    destination tenant (confirmed live against a real dev tenant, which had
+    exactly 2 allowed models, neither of which was either of this table's
+    targets). When the caller *does* have a live connection to the target
+    platform, prefer `wheatear.model_matrix.recommend()` instead -- it
+    queries the destination's actual available-model list and scores
+    candidates by researched capability profile rather than a single coarse
+    tier, at the cost of needing that live connection. This function remains
+    the fallback `model_matrix` itself uses when no target source is given.
+    """
     return _TARGET_BY_TIER[classify_tier(model_hint)]
