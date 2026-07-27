@@ -1,0 +1,8 @@
+kind: TaskDialog
+modelDisplayName: Billing Bot
+modelDescription: Answers billing and invoice questions. Has no access to IT systems.
+action:
+  kind: InvokeConnectedAgentTaskAction
+  botSchemaName: ai_BillingBot
+  historyType:
+    kind: ConversationHistory

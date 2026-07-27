@@ -1,0 +1,11 @@
+<botcomponent schemaname="ai_FakeBot.InvokeConnectedAgentTaskAction.BillingBot">
+  <componenttype>9</componenttype>
+  <description>Answers billing and invoice questions. Has no access to IT systems.</description>
+  <iscustomizable>0</iscustomizable>
+  <name>Billing Bot</name>
+  <parentbotid>
+    <schemaname>ai_FakeBot</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>
