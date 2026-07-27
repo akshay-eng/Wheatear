@@ -832,12 +832,19 @@ def _translate_stage(agent, provider) -> None:
         translate_agent(agent, provider)
 
 
-def _export_for_target(agent, target: str, output_dir: Path):
+def _export_for_target(agent, target: str, output_dir: Path, llm: str | None = None):
     """Export via the platform registry so the correct exporter runs for the
     chosen target (Orchestrate *or* Copilot Studio). This is what makes the
     wizard bidirectional rather than Orchestrate-only.
+
+    `llm` (optional) is the explicit target model chosen upstream (e.g. via the
+    model matrix); only the Orchestrate exporter accepts it. When None, the
+    exporter falls back to its own static model resolution.
     """
-    return load_exporter(target).export_agent(agent, output_dir)
+    exporter = load_exporter(target)
+    if target == "orchestrate" and llm is not None:
+        return exporter.export_agent(agent, output_dir, llm=llm)
+    return exporter.export_agent(agent, output_dir)
 
 
 def _provider_for(config: WheatearConfig, validate: bool = True):
@@ -878,7 +885,7 @@ def _run_deterministic_stages(export_path: Path, target: str = "orchestrate"):
 
 
 def _run_ai_and_export_stages(
-    agent, output_path: Path, target: str, llm_config: WheatearConfig, provider
+    agent, output_path: Path, target: str, llm_config: WheatearConfig, provider, llm: str | None = None
 ) -> Path:
     label = "carrying instructions over (deterministic)" if provider is None else (
         f"synthesizing instructions via {llm_config.llm_provider}"
@@ -898,7 +905,7 @@ def _run_ai_and_export_stages(
     cases = generate_cases(agent)
     console.print(f"[green]Validate[/green]   {len(cases)} eval case(s) generated from the source agent")
 
-    export_result = _export_for_target(agent, target, output_path)
+    export_result = _export_for_target(agent, target, output_path, llm=llm)
     console.print(Panel.fit(f"Wrote {target} agent to {export_result.agent_path}", style="bold green"))
 
     if export_result.needs_review:
@@ -1889,12 +1896,292 @@ def _auto_wizard() -> bool:
 
             if source == "orchestrate":
                 went_back = _orchestrate_source_wizard(target)
+            elif source == "n8n":
+                went_back = _n8n_source_wizard(target)
             else:
                 went_back = _copilot_studio_auto_wizard(source, target)
             if went_back:
                 step = 2
                 continue
             return False
+
+
+@dataclass
+class N8nSourceCredentials:
+    base_url: str
+    api_key: str  # held in memory for the session only
+
+
+def ask_n8n_source_credentials(existing: WheatearConfig | None) -> N8nSourceCredentials:
+    """Prompt for the source n8n instance base URL + API key.
+
+    The URL is a non-secret (saved to config); the API key goes to the OS
+    keychain + session env, never to disk in the clear -- same handling as
+    every other source credential.
+    """
+    from wheatear.creds import KEY_N8N_API_KEY
+
+    console.print(
+        Panel(
+            "[bold]How to find your n8n API key:[/bold]\n\n"
+            "  1. Open your n8n instance in a browser\n"
+            "  2. Go to [bold]Settings → n8n API[/bold]\n"
+            "  3. Click [bold]Create an API key[/bold] and copy it\n\n"
+            "The base URL is your n8n root, e.g. [bold]http://localhost:5678[/bold].",
+            title="[bold]n8n — where to find credentials[/bold]",
+            border_style=_SLATE,
+        )
+    )
+    saved_url = existing.n8n_base_url if existing else None
+    url = questionary.text("n8n base URL:", default=saved_url or "http://localhost:5678").ask()
+    if _cancelled(url) or not url.strip():
+        raise SystemExit(1)
+    env_var = (existing.n8n_api_key_env if existing else None) or "N8N_API_KEY"
+    api_key = _prompt_api_key("n8n", KEY_N8N_API_KEY, env_var)
+    return N8nSourceCredentials(base_url=url.strip(), api_key=api_key)
+
+
+def _activate_orchestrate_env(instance_url: str, api_key: str) -> tuple[bool, str]:
+    """Register + activate an Orchestrate ADK env from the target creds so both
+    `orchestrate models list` (model matrix) and `orchestrate agents import`
+    (deploy) work against the right instance. Returns (ok, detail). Best-effort
+    -- a failure just means the model matrix falls back to the static resolver.
+    """
+    import shutil
+    import subprocess
+
+    if not api_key:
+        return False, "no target API key in the session environment"
+    if shutil.which("orchestrate") is None:
+        return False, "the 'orchestrate' CLI is not on PATH"
+    env_name = "wheatear-target"
+    try:
+        # `env add` prompts "(Y/n)" when the env already exists; feed 'y' and a
+        # closed stdin so it never blocks waiting on the terminal.
+        subprocess.run(
+            ["orchestrate", "env", "add", "-n", env_name, "-u", instance_url],
+            input="y\n", capture_output=True, text=True, timeout=60,
+        )
+        result = subprocess.run(
+            ["orchestrate", "env", "activate", env_name, "--api-key", api_key],
+            input="\n", capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            return True, ""
+        return False, (result.stderr or result.stdout or "activation failed").strip().splitlines()[-1][:160]
+    except subprocess.TimeoutExpired:
+        return False, "activation timed out"
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)[:160]
+
+
+def _recommend_target_model(model_hint: str | None) -> tuple[str | None, str]:
+    """Best-effort target-model resolution via the model matrix against the live
+    Orchestrate model list. Returns (chosen_llm_or_None, message). On any
+    failure (CLI not active, no live list), returns (None, ...) so the exporter
+    falls back to its own static resolver -- the migration never blocks on this.
+    """
+    try:
+        from wheatear.model_matrix import recommend
+        from wheatear.model_matrix.target_sources import OrchestrateModelSource
+
+        rec = recommend(model_hint, OrchestrateModelSource())
+        best = rec.best
+        if best is None:
+            return None, "no target models available; using the exporter's default."
+        return best.raw_id, f"matrix picked '{best.raw_id}' for source '{model_hint}'."
+    except Exception as exc:  # noqa: BLE001
+        return None, f"model matrix unavailable ({str(exc)[:60]}); using the exporter's default."
+
+
+def _n8n_source_wizard(target: str) -> bool:
+    """Auto-discover workflows from a live n8n instance (REST API) and migrate
+    the selected ones. Mirrors the Orchestrate-source flow: connect -> discover
+    -> select -> pipeline -> (deploy). A local workflow-JSON directory is also
+    accepted instead of a live instance."""
+    from wheatear.connectors.n8n import importer as n8n_importer
+    from wheatear.connectors.n8n import n8n_client
+    from wheatear.connectors.orchestrate.catalog import connector_resolver
+
+    existing = load_config()
+
+    # --- source: live instance or local files -------------------------------
+    mode = questionary.select(
+        "n8n source:",
+        choices=[
+            questionary.Choice("Connect to a live n8n instance (REST API)", value="live"),
+            questionary.Choice("Import from a local folder of workflow .json files", value="local"),
+        ],
+    ).ask()
+    if _cancelled(mode):
+        return False
+
+    raw_workflows: list[dict] = []
+    selected_names: set[str] | None = None  # None = export everything imported
+    if mode == "live":
+        creds = ask_n8n_source_credentials(existing)
+        with console.status("[bold]Connecting to n8n..."):
+            ok, msg = n8n_client.probe_connection(creds.base_url, creds.api_key)
+        if not ok:
+            console.print(f"[bold red]Could not connect:[/bold red] {msg}")
+            return False
+        console.print(f"[green]✓[/green] {msg}")
+        with console.status("[bold]Discovering workflows..."):
+            workflows = n8n_client.list_workflows(creds.base_url, creds.api_key)
+        if not workflows:
+            console.print("[yellow]No workflows found in this n8n instance.[/yellow]")
+            return False
+        selected = _multiselect_menu(
+            "Select the workflows to migrate (their sub-workflow collaborators are pulled in automatically):",
+            workflows,
+            label_fn=lambda w: f"{w.name}  [dim]({'active' if w.active else 'inactive'})[/dim]",
+            key_fn=lambda w: w.workflow_id,
+            noun="workflow",
+        )
+        if not selected:
+            return False
+        selected_names = {w.name for w in selected}
+        # Fetch the FULL set so cross-workflow toolWorkflow (collaborator)
+        # references resolve, even to workflows the user didn't explicitly pick.
+        with console.status("[bold]Fetching workflow definitions..."):
+            all_ids = [w.workflow_id for w in workflows]
+            raw_workflows = n8n_client.fetch_all_workflows(creds.base_url, creds.api_key, all_ids)
+        # persist the base URL (non-secret)
+        cfg = existing or WheatearConfig()
+        cfg.n8n_base_url = creds.base_url
+        save_config(cfg)
+    else:
+        path_str = questionary.path("Folder containing n8n workflow .json files:").ask()
+        if _cancelled(path_str) or not path_str:
+            return False
+        path = Path(path_str).expanduser()
+        if n8n_importer.detect_format(path) is None:
+            console.print(f"[bold red]{path} has no recognizable n8n workflow JSON.[/bold red]")
+            return False
+        raw_workflows = n8n_importer._load_json_files(path)
+
+    # --- import (two-pass bundle) -------------------------------------------
+    with console.status("[bold]Extract: parsing n8n workflows..."):
+        bundle = n8n_importer.import_workflows(raw_workflows)
+    console.print(
+        f"[green]Extract[/green]    {len(bundle.results)} agent(s): "
+        + ", ".join(a.name for a in bundle.workflow.agents)
+    )
+
+    # Narrow to the user's selection + its collaborator closure (a chosen
+    # supervisor pulls in the agents it delegates to). None = export all.
+    export_names: set[str] | None = None
+    if selected_names is not None:
+        from wheatear.workflow import reachable_ids
+
+        def _collabs(name: str) -> list[str]:
+            a = bundle.workflow.by_name(name)
+            return [c.ref for c in a.collaborators] if a else []
+
+        present = {a.name for a in bundle.workflow.agents}
+        export_names = set(reachable_ids(selected_names & present, _collabs))
+
+    # --- target creds + LLM settings ----------------------------------------
+    orchestrate_creds = None
+    if target == "orchestrate":
+        orchestrate_creds = ask_orchestrate_credentials(existing)
+        # Activate the Orchestrate ADK env from these creds so the model matrix
+        # can read the tenant's allowed models and deploy targets the right
+        # instance. Without this the model matrix sees no models and the static
+        # fallback may pick a model the tenant doesn't allow.
+        key_val = os.environ.get(orchestrate_creds.api_key_env, "")
+        with console.status("[bold]Activating Orchestrate environment..."):
+            activated, activate_detail = _activate_orchestrate_env(orchestrate_creds.instance_url, key_val)
+        if activated:
+            console.print("  [green]✓[/green] Orchestrate environment active.")
+        else:
+            console.print(f"  [yellow]⚠[/yellow] Could not activate Orchestrate env ({activate_detail}); model matrix may fall back to a default.")
+    provider = _provider_for(existing or WheatearConfig())
+    resolver = connector_resolver()
+
+    # --- map + translate + export each agent (yaml artifact + review manifest)
+    output_root = Path.cwd() / "n8n-migration"
+    ordered = bundle.workflow.migration_order()
+    if export_names is not None:
+        ordered = [a for a in ordered if a.name in export_names]
+    by_name = {r.agent.name: r for r in bundle.results}
+
+    llm = None
+    if target == "orchestrate":
+        # one model pick for the whole workflow (same source model family)
+        hint = next((a.model_hint for a in ordered if a.model_hint), None)
+        llm, model_msg = _recommend_target_model(hint)
+        if model_msg:
+            console.print(f"  [dim]model:[/dim] {model_msg}")
+
+    for agent in ordered:
+        res = by_name[agent.name]
+        try:
+            map_agent(res, target_platform=target, connector_resolver=resolver)
+            out_dir = output_root / agent.name.replace(" ", "_")
+            _run_ai_and_export_stages(agent, out_dir, target, existing or WheatearConfig(), provider, llm=llm)
+        except SystemExit:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"  [red]✗ {agent.name}: {str(exc)[:100]}[/red]")
+
+    # --- provision + deploy to Orchestrate (tools, KB, descriptions, wiring) --
+    if target != "orchestrate" or orchestrate_creds is None:
+        console.print(f"[green]Export complete[/green] — see {output_root}")
+        return False
+
+    console.print("\n[bold]Provisioning & deploying to Orchestrate[/bold] (MCP tools, knowledge bases, collaborators)…")
+    from wheatear.connectors.orchestrate.provisioner import provision_and_deploy
+    from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient
+
+    # A real LLM provider for AI-generated agent descriptions (n8n has none).
+    desc_provider = None
+    try:
+        from wheatear.llm.factory import build_provider
+        cfg = existing or WheatearConfig()
+        if cfg.llm_provider in ("google", "anthropic"):
+            desc_provider = build_provider(cfg.llm_provider, resolve_api_key(cfg))
+    except Exception:  # noqa: BLE001
+        desc_provider = None
+
+    client = OrchestrateRestClient(
+        os.environ.get(orchestrate_creds.api_key_env, ""),
+        orchestrate_creds.instance_url,
+    )
+    selected_results = {a.name: by_name[a.name] for a in ordered}
+    from rich.markup import escape as _esc
+
+    def _prov_log(m: str) -> None:
+        # Messages carry literal "[Agent Name]" prefixes -> escape so Rich
+        # doesn't try to parse them as markup tags.
+        if m.startswith("──"):
+            console.print(f"[bold]{_esc(m)}[/bold]")
+        else:
+            console.print(f"  [dim]{_esc(m)}[/dim]")
+
+    reports = provision_and_deploy(
+        client, bundle.workflow, selected_results, llm or "groq/openai/gpt-oss-120b",
+        provider=desc_provider, on_progress=_prov_log,
+    )
+
+    table = Table(title="n8n → orchestrate (deployed)")
+    table.add_column("Agent")
+    table.add_column("OK")
+    table.add_column("Tools")
+    table.add_column("KB")
+    table.add_column("Collaborators")
+    table.add_column("Validation")
+    for rp in reports:
+        table.add_row(
+            rp.name,
+            "[green]✓[/green]" if rp.ok else "[red]✗[/red]",
+            str(len(rp.tools)),
+            str(len(rp.knowledge)),
+            ", ".join(rp.collaborators) or "—",
+            rp.error or rp.validation,
+        )
+    console.print(table)
+    return False
 
 
 def _copilot_studio_auto_wizard(source: str, target: str) -> bool:

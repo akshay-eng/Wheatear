@@ -171,7 +171,7 @@ def _parse_rest_export(data: dict) -> ImportResult:
     agent_data = data.get("agent") or {}
     toolkits = data.get("toolkits") or []
 
-    name = agent_data.get("name") or agent_data.get("display_name") or "unknown"
+    name = agent_data.get("display_name") or agent_data.get("name") or "unknown"
     instructions = (agent_data.get("instructions") or "").strip() or None
     description = (agent_data.get("description") or "").strip() or None
     if not instructions and description:
@@ -285,7 +285,9 @@ def _parse_native(data: dict) -> ImportResult:
 
 def _parse_wheatear(data: dict) -> ImportResult:
     """Parse Wheatear's own Orchestrate exporter output format."""
-    name = data.get("name", "unknown")
+    # Prefer display_name (the human-readable original) over the sanitized
+    # technical name, so a round-trip preserves the source name.
+    name = data.get("display_name") or data.get("name", "unknown")
     instructions = data.get("instructions", "")
     existing_instructions: str | None = instructions.strip() if instructions.strip() else None
 

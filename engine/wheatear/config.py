@@ -44,6 +44,10 @@ class WheatearConfig:
     # Copilot Studio source
     source_env_url: str | None = None    # Power Platform Dataverse URL
     source_tenant_id: str | None = None  # Azure AD tenant ID
+    # n8n source (migrate-from instance). URL + env-var *name* only; the API
+    # key itself lives in the OS keychain (creds.KEY_N8N_API_KEY), never here.
+    n8n_base_url: str | None = None
+    n8n_api_key_env: str = "N8N_API_KEY"
     # First-launch onboarding (pre-flight dependency check) already shown
     onboarding_completed: bool = False
 
@@ -68,6 +72,8 @@ def load_config(path: Path = CONFIG_PATH) -> WheatearConfig | None:
         ),
         source_env_url=data.get("source_env_url"),
         source_tenant_id=data.get("source_tenant_id"),
+        n8n_base_url=data.get("n8n_base_url"),
+        n8n_api_key_env=data.get("n8n_api_key_env", "N8N_API_KEY"),
         onboarding_completed=data.get("onboarding_completed", False),
     )
 

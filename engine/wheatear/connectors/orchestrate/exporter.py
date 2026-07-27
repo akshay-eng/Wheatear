@@ -41,19 +41,53 @@ def _dump_yaml(data: dict, path: Path) -> None:
         yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
 
 
+def _sanitize_name(name: str) -> str:
+    """Orchestrate agent names must start with a letter and contain only
+    alphanumeric characters and underscores (no spaces). Applied consistently
+    to an agent's own name and to every collaborator reference so leaf-first
+    deploy still resolves the edges (both sides sanitize identically)."""
+    import re
+
+    cleaned = re.sub(r"[^0-9A-Za-z_]", "_", name).strip("_")
+    if not cleaned:
+        cleaned = "agent"
+    if not cleaned[0].isalpha():
+        cleaned = "a_" + cleaned
+    return cleaned
+
+
 def _agent_spec(agent: Agent, llm: str) -> dict:
     spec: dict = {
         "spec_version": "v1",
         "kind": "native",
-        "name": agent.name,
+        "name": _sanitize_name(agent.name),
+        # description is a required field on the Orchestrate ADK Agent model, so
+        # always emit a non-empty value -- fall back to the agent name when the
+        # source didn't provide one (e.g. n8n agents have no description field).
+        "description": agent.description or agent.name,
         "llm": llm,
-        "style": agent.agent_style or "default",
+        # ReAct Core ('react_intrinsic') is Orchestrate's recommended style;
+        # 'default' and 'react' are deprecated. Use it as the default when the
+        # source didn't specify a style (n8n has no equivalent), while
+        # preserving an explicit source style for same-platform round-trips.
+        "style": agent.agent_style or "react_intrinsic",
         "instructions": agent.instructions,
-        "collaborators": [c.ref for c in agent.collaborators],
-        "tools": [t.ref for t in agent.tools],
+        # Only reference entities that will actually exist at import time. The
+        # ADK hard-fails an import if a referenced collaborator/tool/knowledge
+        # base isn't already registered. Collaborators resolve because the
+        # migration deploys leaf-first (both sides sanitize names identically).
+        # Tools/knowledge that still need provisioning on the target (any MCP
+        # re-point, catalog install, OpenAPI import, file upload, or manual
+        # build) are left OUT of the deployable spec and carried in
+        # review-manifest.yaml instead, so the agent imports as a working
+        # skeleton the human then completes per the manifest. Only a tool
+        # confidently pinned to a pre-existing target tool (bridge=None, e.g. a
+        # KNOWN_TOOL_MAPPINGS entry) is emitted.
+        "collaborators": [_sanitize_name(c.ref) for c in agent.collaborators if not c.review_required],
+        "tools": [t.ref for t in agent.tools if not t.review_required and t.bridge is None],
     }
-    if agent.description:
-        spec["description"] = agent.description
+    if agent.name != spec["name"]:
+        spec["display_name"] = agent.name
     if agent.guidelines:
         # ADK AgentGuideline schema: display_name?/condition/action/tool?.
         spec["guidelines"] = [
@@ -69,8 +103,9 @@ def _agent_spec(agent: Agent, llm: str) -> dict:
             }
             for g in agent.guidelines
         ]
-    if agent.knowledge:
-        spec["knowledge_base"] = [k.ref for k in agent.knowledge]
+    deployable_kb = [k.ref for k in agent.knowledge if not k.review_required]
+    if deployable_kb:
+        spec["knowledge_base"] = deployable_kb
     if agent.welcome_message:
         # ADK WelcomeContent schema (welcome_content.py).
         spec["welcome_content"] = {

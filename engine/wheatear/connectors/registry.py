@@ -39,6 +39,12 @@ PLATFORMS: dict[str, PlatformSpec] = {
         importer_module="wheatear.connectors.orchestrate.importer",
         exporter_module="wheatear.connectors.orchestrate.exporter",
     ),
+    "n8n": PlatformSpec(
+        key="n8n",
+        display_name="n8n",
+        importer_module="wheatear.connectors.n8n.importer",
+        exporter_module=None,  # source-only for now; IR->n8n exporter deferred
+    ),
 }
 
 

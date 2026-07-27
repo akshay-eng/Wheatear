@@ -26,14 +26,26 @@ from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 from wheatear.connectors.copilot_studio.common import SYSTEM_TOPIC_NAMES, ImportResult, RawKnowledgeRef
-from wheatear.ir.schema import Agent, DialogNode, DialogNodeKind, Topic
+from wheatear.ir.schema import Agent, AgentRef, DialogNode, DialogNodeKind, Topic, Workflow
+from wheatear.workflow import assemble_workflow
 
 SOURCE_PLATFORM = "copilot-studio"
+
+
+@dataclass
+class CopilotImport:
+    """A multi-agent Copilot solution import: the assembled Workflow plus the
+    per-agent ImportResults (whose `.agent` objects are the same ones in
+    `workflow.agents`, so Map mutates them in place)."""
+
+    workflow: Workflow
+    results: list[ImportResult] = field(default_factory=list)
 
 COMPONENT_TYPE_TOPIC = 9
 COMPONENT_TYPE_GPT = 15
@@ -143,12 +155,17 @@ def _parse_gpt_component(data: dict) -> tuple[str | None, str | None, bool]:
     return (instructions or None), model_hint, web_search
 
 
-def _parse_configuration(bots_dir: Path) -> tuple[list[str], str | None]:
-    """Read bots/*/configuration.json for deployment channels and the
-    content-moderation posture. Returns ([] , None) if absent so a missing
-    file never breaks an import.
+def _parse_configuration(bot_or_bots_dir: Path) -> tuple[list[str], str | None]:
+    """Read a bot's configuration.json for deployment channels and the
+    content-moderation posture. Accepts either a specific bot directory
+    (<dir>/configuration.json) or the bots/ root (bots/*/configuration.json).
+    Returns ([], None) if absent so a missing file never breaks an import.
     """
-    config_files = list(bots_dir.glob("*/configuration.json"))
+    direct = bot_or_bots_dir / "configuration.json"
+    if direct.exists():
+        config_files = [direct]
+    else:
+        config_files = list(bot_or_bots_dir.glob("*/configuration.json"))
     if not config_files:
         return [], None
     try:
@@ -191,7 +208,7 @@ def _parse_bot_name(bots_dir: Path) -> str:
     return bot_xml_files[0].parent.name
 
 
-def _read_botcomponent_meta(botcomponent_xml: Path) -> tuple[int | None, str, str | None, str]:
+def _read_botcomponent_meta(botcomponent_xml: Path) -> tuple[int | None, str, str | None, str, str]:
     root = ET.parse(botcomponent_xml).getroot()
     type_el = root.find("componenttype")
     name_el = root.find("name")
@@ -207,43 +224,104 @@ def _read_botcomponent_meta(botcomponent_xml: Path) -> tuple[int | None, str, st
     # "Conversational boosting") -- confirmed against a real export.
     schemaname = root.get("schemaname") or botcomponent_xml.parent.name
     schema_suffix = schemaname.rsplit(".", 1)[-1]
-    return component_type, name, description, schema_suffix
+    # The first segment is the owner bot's schema name (e.g.
+    # "crd07_Candidateagent.action.ServiceNow-ListRecords" -> owner
+    # "crd07_Candidateagent"), which matches the bots/<dir> name. Used to
+    # attribute each component to its bot in a multi-agent solution.
+    owner_bot = schemaname.split(".", 1)[0]
+    return component_type, name, description, schema_suffix, owner_bot
 
 
-def import_agent(solution_dir: Path) -> ImportResult:
-    """Parse a Copilot Studio solution export directory into the canonical IR."""
-    solution_dir = Path(solution_dir)
-    bots_dir = solution_dir / "bots"
-    components_dir = solution_dir / "botcomponents"
+def _bot_display_names(bots_dir: Path) -> dict[str, str]:
+    """Map each bot's schema name (its bots/<dir> name) to its display name from
+    bot.xml. Used to resolve InvokeConnectedAgent botSchemaName -> the target
+    Agent's name so collaborator edges match."""
+    mapping: dict[str, str] = {}
+    for bot_xml in bots_dir.glob("*/bot.xml"):
+        schema = bot_xml.parent.name
+        name_el = ET.parse(bot_xml).getroot().find("name")
+        mapping[schema] = name_el.text if name_el is not None and name_el.text else schema
+    return mapping
 
-    if not (solution_dir / "solution.xml").exists() or not bots_dir.is_dir():
-        raise FileNotFoundError(
-            f"{solution_dir} doesn't look like a Copilot Studio solution export "
-            "(expected solution.xml and a bots/ directory)."
-        )
 
-    agent_name = _parse_bot_name(bots_dir)
+def _parse_task_dialog(schema_suffix: str, name: str, data: dict) -> tuple[str, dict]:
+    """Classify a componenttype=9 TaskDialog by its action kind. Returns
+    (kind, payload) where kind is 'connector', 'collaborator', or 'other'.
+    """
+    action = data.get("action", {}) or {}
+    akind = action.get("kind")
+    if akind == "InvokeConnectorTaskAction":
+        # e.g. schema "ServiceNow-ListRecords" -> app "ServiceNow"; the
+        # connectionReference identifies the shared connection needing creds.
+        app = schema_suffix.split("-", 1)[0] if "-" in schema_suffix else (name.split(" - ")[0] if " - " in name else name)
+        return "connector", {
+            "app": app.strip(),
+            "operation": action.get("operationId"),
+            "connection_reference": action.get("connectionReference"),
+        }
+    if akind == "InvokeConnectedAgentTaskAction":
+        return "collaborator", {
+            "bot_schema": action.get("botSchemaName"),
+            "display": data.get("modelDisplayName") or name,
+        }
+    return "other", {}
 
+
+def _connection_app_from_reference(connection_reference: str | None) -> str | None:
+    """Derive a friendly connection name from a connectionReference logical
+    name, e.g. 'crd07_Candidateagent.shared_service-now.17b...' -> 'service-now'."""
+    if not connection_reference:
+        return None
+    parts = connection_reference.split(".")
+    for p in parts:
+        if p.startswith("shared_"):
+            return p[len("shared_"):]
+    return connection_reference
+
+
+def _import_one_bot(
+    bot_schema: str,
+    agent_name: str,
+    component_dirs: list[Path],
+    bots_dir: Path,
+    botschema_to_display: dict[str, str],
+) -> ImportResult:
+    """Build one Agent (IR) from the botcomponents belonging to `bot_schema`."""
     topics: list[Topic] = []
     raw_tool_refs: list[str] = []
     raw_knowledge_refs: list[RawKnowledgeRef] = []
+    raw_connection_refs: list[str] = []
     import_notes: list[str] = []
+    collaborators: list[AgentRef] = []
     existing_instructions: str | None = None
     model_hint: str | None = None
     web_search = False
     welcome_message: str | None = None
 
-    component_dirs = sorted(components_dir.iterdir()) if components_dir.is_dir() else []
     for component_dir in component_dirs:
         botcomponent_xml = component_dir / "botcomponent.xml"
         data_file = component_dir / "data"
         if not botcomponent_xml.exists() or not data_file.exists():
             continue
-
-        component_type, name, description, schema_suffix = _read_botcomponent_meta(botcomponent_xml)
+        component_type, name, description, schema_suffix, owner = _read_botcomponent_meta(botcomponent_xml)
+        if owner != bot_schema:
+            continue
         data = yaml.safe_load(data_file.read_text()) or {}
 
-        if component_type == COMPONENT_TYPE_TOPIC:
+        if component_type == COMPONENT_TYPE_TOPIC and data.get("kind") == "TaskDialog":
+            kind, payload = _parse_task_dialog(schema_suffix, name, data)
+            if kind == "connector":
+                raw_tool_refs.append(payload["app"])
+                conn = _connection_app_from_reference(payload.get("connection_reference"))
+                if conn and conn not in raw_connection_refs:
+                    raw_connection_refs.append(conn)
+            elif kind == "collaborator":
+                target = botschema_to_display.get(payload.get("bot_schema"), payload.get("display"))
+                collaborators.append(AgentRef(ref=target, source_ref=payload.get("bot_schema"), notes=None))
+            else:
+                import_notes.append(f"Skipped TaskDialog '{component_dir.name}' (unrecognized action kind).")
+
+        elif component_type == COMPONENT_TYPE_TOPIC:
             topic, tool_refs, knowledge_refs = _parse_topic_component(name, schema_suffix, data)
             raw_tool_refs.extend(tool_refs)
             raw_knowledge_refs.extend(knowledge_refs)
@@ -262,7 +340,7 @@ def import_agent(solution_dir: Path) -> ImportResult:
                 f"Skipped component '{component_dir.name}' (componenttype={component_type}); unrecognized type."
             )
 
-    channels, content_moderation = _parse_configuration(bots_dir)
+    channels, content_moderation = _parse_configuration(bots_dir / bot_schema if (bots_dir / bot_schema).is_dir() else bots_dir)
 
     agent = Agent(
         name=agent_name,
@@ -274,12 +352,62 @@ def import_agent(solution_dir: Path) -> ImportResult:
         channels=channels,
         content_moderation=content_moderation,
         web_search=web_search,
+        collaborators=collaborators,
     )
-
     return ImportResult(
         agent=agent,
         raw_tool_refs=raw_tool_refs,
         raw_knowledge_refs=raw_knowledge_refs,
-        raw_connection_refs=[],
+        raw_connection_refs=raw_connection_refs,
         import_notes=import_notes,
     )
+
+
+def import_bundle(solution_dir: Path) -> "CopilotImport":
+    """Parse a (possibly multi-agent) Copilot Studio solution into a Workflow +
+    per-agent ImportResults. Handles connected agents (-> collaborators) and
+    connector actions (-> tools + connections)."""
+    solution_dir = Path(solution_dir)
+    bots_dir = solution_dir / "bots"
+    components_dir = solution_dir / "botcomponents"
+    if not (solution_dir / "solution.xml").exists() or not bots_dir.is_dir():
+        raise FileNotFoundError(
+            f"{solution_dir} doesn't look like a Copilot Studio solution export "
+            "(expected solution.xml and a bots/ directory)."
+        )
+
+    botschema_to_display = _bot_display_names(bots_dir)
+    component_dirs = sorted(components_dir.iterdir()) if components_dir.is_dir() else []
+
+    results = [
+        _import_one_bot(bot_schema, display, component_dirs, bots_dir, botschema_to_display)
+        for bot_schema, display in botschema_to_display.items()
+    ]
+    root = _pick_copilot_root(results)
+    workflow = assemble_workflow([r.agent for r in results], source_platform=SOURCE_PLATFORM, root=root)
+    return CopilotImport(workflow=workflow, results=results)
+
+
+def _pick_copilot_root(results: list[ImportResult]) -> str | None:
+    """The entry agent: the one that references others (a supervisor) but is
+    itself unreferenced, else the first."""
+    names = {r.agent.name for r in results}
+    referenced: set[str] = {c.ref for r in results for c in r.agent.collaborators}
+    has_collabs = [r for r in results if r.agent.collaborators]
+    for r in has_collabs:
+        if r.agent.name not in referenced:
+            return r.agent.name
+    unreferenced = [n for n in names if n not in referenced]
+    return unreferenced[0] if unreferenced else (next(iter(names), None))
+
+
+def import_agent(solution_dir: Path) -> ImportResult:
+    """Single-agent module-contract entry: returns the root bot's ImportResult
+    (the supervisor for a multi-agent solution, or the sole bot). Callers that
+    need the full multi-agent graph use import_bundle."""
+    bundle = import_bundle(solution_dir)
+    root_name = bundle.workflow.root
+    for r in bundle.results:
+        if r.agent.name == root_name:
+            return r
+    return bundle.results[0]

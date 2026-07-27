@@ -37,6 +37,8 @@ def test_save_config_never_writes_a_secret_value(tmp_path):
         "source_tenant_id",           # Azure AD GUID, not a secret
         "source_orchestrate_url",     # source WXO instance URL, not a secret
         "source_orchestrate_workspace_id",  # workspace GUID, not a secret
+        "n8n_base_url",               # n8n instance URL, not a secret
+        "n8n_api_key_env",            # stores env-var name, never the key value
         "onboarding_completed",        # a bool flag, not a secret
     }
 
