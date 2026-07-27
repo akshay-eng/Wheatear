@@ -16,6 +16,11 @@ dependencies = [
     "pillow>=10.0",
     "keyring>=24.0",
     "requests>=2.28",
+    # Every supported corridor targets watsonx Orchestrate: the ADK is what
+    # imports agents, reads the tenant's model list, and creates connections.
+    # It was installed by hand here and not declared, so a fresh `pip install`
+    # produced an environment that passed its tests and could not migrate.
+    "ibm-watsonx-orchestrate>=2.13",
 ]
 
 [project.optional-dependencies]
