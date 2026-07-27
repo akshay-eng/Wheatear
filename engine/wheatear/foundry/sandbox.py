@@ -36,6 +36,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -402,8 +403,21 @@ class SubprocessSandbox:
         memory_bytes = self.memory_mb * 1024 * 1024
         timeout = self.timeout_s
 
+        # RLIMIT_AS is the one limit that doesn't hold everywhere: macOS does
+        # not enforce an address-space cap and setrlimit(RLIMIT_AS) raises
+        # there, which -- from a preexec_fn -- kills the child with exit 255.
+        # So it is skipped *only on darwin* (a developer machine, where the
+        # wall-clock timeout is bound enough). Every other platform, Linux
+        # servers included, keeps the full set applied strictly: a limit that
+        # fails to set there is raised, not swallowed, because a silently
+        # unbounded child on a server is worse than a loud error. This is
+        # deliberately not a blanket try/except -- masking a real failure on the
+        # host that actually enforces these limits is the thing to avoid.
+        skip_memory_limit = sys.platform == "darwin"
+
         def apply() -> None:
-            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+            if not skip_memory_limit:
+                resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
             resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
             # Zero-length file limit: the harness reads its inputs from a
             # directory the host wrote, and has no reason to create anything.
