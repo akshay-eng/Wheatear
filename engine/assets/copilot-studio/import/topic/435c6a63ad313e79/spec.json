@@ -1,0 +1,191 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "copilot-studio",
+  "direction": "import",
+  "entity_kind": "topic",
+  "schema_fingerprint": "435c6a63ad313e79bc075911843ae62aae99ff0a3dd3da71d486c7785961877c",
+  "ir_version": "wheatear/v1",
+  "mappings": [
+    {
+      "target_path": "is_system_topic",
+      "source_paths": [
+        "data.beginDialog.kind"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.95,
+      "rationale": "The boolean `is_system_topic` can be derived from `data.beginDialog.kind`, as values like 'OnError' or 'OnSignIn' represent system-level triggers."
+    },
+    {
+      "target_path": "name",
+      "source_paths": [
+        "botcomponent.name"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.9,
+      "rationale": "Field names agree (botcomponent.name -> name) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "trigger_phrases[]",
+      "source_paths": [
+        "data.beginDialog.intent.triggerQueries[]"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `data.beginDialog.intent.triggerQueries` directly corresponds to the target `trigger_phrases`, both representing the user utterances that start the topic."
+    }
+  ],
+  "flags": [
+    {
+      "path": "unsupported_notes[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `unsupported_notes[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "botcomponent.@schemaname",
+      "reason": "lossy",
+      "detail": "`botcomponent.@schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.componenttype",
+      "reason": "lossy",
+      "detail": "`botcomponent.componenttype` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.description",
+      "reason": "lossy",
+      "detail": "`botcomponent.description` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "botcomponent.iscustomizable",
+      "reason": "lossy",
+      "detail": "`botcomponent.iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.parentbotid.schemaname",
+      "reason": "lossy",
+      "detail": "`botcomponent.parentbotid.schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.statecode",
+      "reason": "lossy",
+      "detail": "`botcomponent.statecode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.statuscode",
+      "reason": "lossy",
+      "detail": "`botcomponent.statuscode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "data.beginDialog.actions[].*.allowInterruption",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.actions[].*.allowInterruption` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.actions[].*.items",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.actions[].*.items` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.actions[].*.kind",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.actions[].*.kind` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.actions[].*.speak",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.actions[].*.speak` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.actions[].*.text",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.actions[].*.text` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.id",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.id` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "data.beginDialog.intent.displayName",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.intent.displayName` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.intent.includeInOnSelectIntent",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.intent.includeInOnSelectIntent` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.priority",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.priority` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.beginDialog.triggerBehavior",
+      "reason": "lossy",
+      "detail": "`data.beginDialog.triggerBehavior` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "data.kind",
+      "reason": "lossy",
+      "detail": "`data.kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "data.startBehavior",
+      "reason": "lossy",
+      "detail": "`data.startBehavior` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "is_system_topic",
+      "reason": "semantic_ambiguity",
+      "detail": "`is_system_topic` is derived rather than carried over: The boolean `is_system_topic` can be derived from `data.beginDialog.kind`, as values like 'OnError' or 'OnSignIn' represent system-level triggers.",
+      "severity": "warn"
+    }
+  ],
+  "notes": [
+    "Deterministic alignment settled 1 of 4 target field(s).",
+    "1 target field(s) had no candidate source at all and were flagged without a model call.",
+    "The model adjudicated 2 remaining field(s).",
+    "`nodes` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "Dropped proposed case `trigger_phrase_with_entity`: it asserts on trigger_phrases[0], which are not target fields.",
+    "The model contributed 5 extra test case(s).",
+    "1 of 1 derived field(s) were implemented.",
+    "Attempt 1 failed; revised the derived fields.",
+    "Attempt 2 failed; revised the derived fields.",
+    "Attempt 3 failed; revised the derived fields.",
+    "Every remaining failure was a model-proposed case; they were dropped as unreliable and the derived suite alone was re-run."
+  ],
+  "generator": "GoogleProvider"
+}

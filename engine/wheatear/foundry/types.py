@@ -210,12 +210,45 @@ class SchemaCorpus(BaseModel):
     def kinds(self) -> list[EntityKind]:
         return [e.kind for e in self.entities]
 
+    def identity(self) -> dict:
+        """What the fingerprint is taken over: the versions, not the fields.
+
+        This used to be `structure()` -- every observed field path, type and
+        enum. That made the cache key a property of *one tenant's data* rather
+        than of the platform, with two consequences that both had to go.
+
+        It was wrong. An "enum" inferred from 24 samples of one tenant is
+        frequently just that tenant's GUID, so re-probing the same unchanged
+        platform moved the fingerprint (observed live: bf7d3433 -> c3b8feac,
+        because a previous migration's own agents had changed the tenant) and
+        silently rebuilt adapters that were already correct.
+
+        It was also unshippable. A key derived from customer records cannot be
+        published, so every user paid for their own build of a mapping that is
+        identical for all of them -- the field layout belongs to Microsoft and
+        IBM, not to whoever is migrating.
+
+        Keying on the declared versions instead means one build genuinely
+        serves everyone on those versions. What that gives up is noticing a
+        vendor adding a field, which now belongs to `conformance.check` -- and
+        belongs there anyway, because it can name the drift instead of
+        expressing it as a cache miss nobody can interpret.
+        """
+        return {
+            "spec": self.spec_version,
+            "platform": self.platform,
+            "versions": dict(sorted(self.declared_versions.items())),
+        }
+
     def structure(self) -> dict:
-        """The canonical projection the fingerprint is taken over.
+        """The observed shape, sorted canonically.
+
+        No longer the fingerprint -- see `identity` -- but still what
+        conformance compares a tenant's records against, and what the
+        translator reads when inferring a mapping.
 
         Sorted at every level so that dict ordering, probe ordering and sample
-        ordering can never change the hash -- an unstable fingerprint would
-        silently disable the cache instead of failing loudly.
+        ordering can never change it.
         """
         return {
             "spec": self.spec_version,
@@ -246,28 +279,18 @@ class SchemaCorpus(BaseModel):
         }
 
     def fingerprint(self) -> str:
-        blob = json.dumps(self.structure(), sort_keys=True, separators=(",", ":"))
+        blob = json.dumps(self.identity(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(blob.encode()).hexdigest()
 
     def entity_fingerprint(self, kind: EntityKind) -> str:
-        """Fingerprint of one entity's shape alone.
+        """The key an adapter for this entity kind is cached under.
 
-        Adapters are compiled per entity kind, so keying them on the whole
-        corpus would throw away every tool adapter the day a platform added a
-        field to its agent schema.
+        The same value for every kind, because the kind is already part of the
+        adapter's path (`platform/direction/kind/fingerprint`) and repeating it
+        in the hash would only make two names for one thing. What distinguishes
+        adapters is the platform versions they were compiled against.
         """
-        entity = self.entity(kind)
-        if entity is None:
-            return hashlib.sha256(f"{self.platform}:{kind.value}:absent".encode()).hexdigest()
-        structure = next(
-            e for e in self.structure()["entities"] if e["kind"] == kind.value and e["name"] == entity.name
-        )
-        blob = json.dumps(
-            {"platform": self.platform, "version": self.platform_version, "entity": structure},
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return hashlib.sha256(blob.encode()).hexdigest()
+        return self.fingerprint()
 
 
 class TransformKind(str, Enum):

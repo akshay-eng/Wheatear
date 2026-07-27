@@ -1,0 +1,123 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "copilot-studio",
+  "direction": "import",
+  "entity_kind": "knowledge",
+  "schema_fingerprint": "435c6a63ad313e79bc075911843ae62aae99ff0a3dd3da71d486c7785961877c",
+  "ir_version": "wheatear/v1",
+  "mappings": [
+    {
+      "target_path": "description",
+      "source_paths": [
+        "botcomponent.description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (botcomponent.description -> description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "ref",
+      "source_paths": [
+        "botcomponent.name"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 1.0,
+      "rationale": "The target field 'ref' is described as the name or identifier of the knowledge source, such as a file name, which directly corresponds to the source field 'botcomponent.name'."
+    }
+  ],
+  "flags": [
+    {
+      "path": "file_path",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `file_path`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "ingest_plan",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `ingest_plan`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "notes",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `notes`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "review_required",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `review_required`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "source_ref",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `source_ref`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "botcomponent.@schemaname",
+      "reason": "lossy",
+      "detail": "`botcomponent.@schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.componenttype",
+      "reason": "lossy",
+      "detail": "`botcomponent.componenttype` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.filedata.#text",
+      "reason": "lossy",
+      "detail": "`botcomponent.filedata.#text` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.filedata.@mimetype",
+      "reason": "lossy",
+      "detail": "`botcomponent.filedata.@mimetype` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.iscustomizable",
+      "reason": "lossy",
+      "detail": "`botcomponent.iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.parentbotid.schemaname",
+      "reason": "lossy",
+      "detail": "`botcomponent.parentbotid.schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.statecode",
+      "reason": "lossy",
+      "detail": "`botcomponent.statecode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent.statuscode",
+      "reason": "lossy",
+      "detail": "`botcomponent.statuscode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    }
+  ],
+  "notes": [
+    "Deterministic alignment settled 1 of 7 target field(s).",
+    "5 target field(s) had no candidate source at all and were flagged without a model call.",
+    "The model adjudicated 1 remaining field(s).",
+    "The model contributed 6 extra test case(s)."
+  ],
+  "generator": "GoogleProvider"
+}

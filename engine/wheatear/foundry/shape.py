@@ -25,6 +25,8 @@ enough to hash -- which is what the whole adapter cache is keyed on.
 
 from __future__ import annotations
 
+import re
+
 import types as pytypes
 from dataclasses import dataclass, field
 from enum import Enum
@@ -144,6 +146,69 @@ def _examples(obs: _Observation) -> list[str]:
     return sorted(rendered)[:MAX_EXAMPLES]
 
 
+# A path segment that is plainly an identifier rather than a field name.
+# `agent_mapping.4e96a4fc-7ee8-45fb-bbff-f2944a845fc1` is not a field called
+# `4e96a4fc-...`; it is one entry in a map keyed by agent id.
+_ID_KEY = re.compile(
+    r"^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+    r"|[0-9a-fA-F]{24,}|\d+)$"
+)
+
+# Below this, the keys under a path are too unstable to be field names.
+# A record has the same keys in every sample; a map does not.
+MAP_KEY_STABILITY = 0.5
+
+
+def _map_paths(samples: list[dict]) -> set[str]:
+    """Paths whose children are map entries rather than fields.
+
+    Two signals, either of which is enough:
+
+      * a child key that is plainly an identifier -- a GUID, a long hex blob;
+      * child keys that barely repeat across records. A record has the same
+        keys every time. `binding.python.connections` does not: it is keyed by
+        whichever app connections *that tenant* configured.
+
+    Getting this wrong is not only a privacy problem, though it is that -- it
+    put tenant agent ids and connection names into generated adapter code. It
+    is a correctness problem: an adapter compiled against one tenant's
+    connection names has no mapping for the next tenant's, which defeats the
+    point of compiling it once for everyone.
+    """
+    seen: dict[str, list[set[str]]] = {}
+
+    def walk(value: Any, path: str, depth: int) -> None:
+        if depth >= MAX_DEPTH:
+            return
+        if isinstance(value, dict):
+            seen.setdefault(path, []).append(set(map(str, value.keys())))
+            for key, child in value.items():
+                walk(child, f"{path}.{key}" if path else str(key), depth + 1)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                walk(item, f"{path}[]", depth + 1)
+
+    for sample in samples:
+        if isinstance(sample, dict):
+            walk(sample, "", 0)
+
+    maps: set[str] = set()
+    for path, key_sets in seen.items():
+        if not path:
+            continue
+        keys = set().union(*key_sets)
+        if not keys:
+            continue
+        if any(_ID_KEY.match(k) for k in keys):
+            maps.add(path)
+            continue
+        # How often a key recurs across the records that had this path.
+        shared = set.intersection(*key_sets) if len(key_sets) > 1 else keys
+        if len(keys) > 2 and len(shared) / len(keys) < MAP_KEY_STABILITY:
+            maps.add(path)
+    return maps
+
+
 def infer_fields(samples: list[dict]) -> list[FieldNode]:
     """Infer a flat field inventory from sample records.
 
@@ -155,6 +220,19 @@ def infer_fields(samples: list[dict]) -> list[FieldNode]:
     if not samples:
         return []
 
+    maps = _map_paths(samples)
+
+    def canonical(path: str) -> str:
+        """Collapse map entries onto the map: `conns.snow_ibm_1` -> `conns.*`."""
+        for parent in maps:
+            if path == parent or not path.startswith(parent + "."):
+                continue
+            rest = path[len(parent) + 1 :]
+            head, _, tail = rest.partition(".")
+            if head:
+                return f"{parent}.*{('.' + tail) if tail else ''}"
+        return path
+
     merged: dict[str, _Observation] = {}
     for sample in samples:
         if not isinstance(sample, dict):
@@ -162,6 +240,7 @@ def infer_fields(samples: list[dict]) -> list[FieldNode]:
         per_sample: dict[str, _Observation] = {}
         _walk(sample, "", per_sample, 0)
         per_sample.pop("", None)  # the root itself is not a field
+        per_sample = {canonical(p): o for p, o in per_sample.items()}
         for path, obs in per_sample.items():
             target = merged.setdefault(path, _Observation())
             target.types |= obs.types

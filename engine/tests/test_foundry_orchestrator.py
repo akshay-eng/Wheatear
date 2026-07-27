@@ -266,9 +266,15 @@ def test_a_platform_key_cannot_write_outside_the_store(tmp_path):
 # ----------------------------------------------------------------------
 
 
-def test_the_fingerprint_covers_shape_and_ignores_data():
-    """Two tenants on the same platform version must share a compiled adapter;
-    a vendor who adds a field must not.
+def test_the_fingerprint_is_the_platform_versions_not_one_tenant_s_fields():
+    """Every user on the same platform versions must share one compiled build.
+
+    The fingerprint used to be taken over observed fields, which made it a
+    property of one tenant's data: an "enum" inferred from 24 samples is
+    frequently just that tenant's GUID, so re-probing an unchanged platform
+    moved the key and rebuilt adapters that were already correct. It also made
+    the cache unshippable, because a key derived from customer records cannot
+    be published.
     """
     a = _corpus()
     b = _corpus()
@@ -276,18 +282,29 @@ def test_the_fingerprint_covers_shape_and_ignores_data():
     b.captured_at = datetime.now(timezone.utc) + timedelta(days=5)
     assert a.fingerprint() == b.fingerprint()
 
+    # A field the vendor added no longer changes the key. Noticing that is
+    # `conformance.check`'s job, which can name the drift rather than
+    # expressing it as a cache miss nobody can interpret.
     moved = _corpus(extra_field="bot.newField")
-    assert moved.fingerprint() != a.fingerprint()
+    assert moved.fingerprint() == a.fingerprint()
 
 
-def test_each_entity_kind_is_fingerprinted_separately():
-    """Keying adapters on the whole corpus would throw away every tool adapter
-    the day a platform added a field to its agent schema.
-    """
+def test_a_platform_version_bump_is_what_forces_a_new_key():
     a = _corpus()
-    b = _corpus(extra_field="bot.newField")
-    assert a.entity_fingerprint(EntityKind.AGENT) != b.entity_fingerprint(EntityKind.AGENT)
-    assert a.entity_fingerprint(EntityKind.TOOL) == b.entity_fingerprint(EntityKind.TOOL)
+    b = _corpus()
+    b.declared_versions = dict(a.declared_versions, adk="99.0.0")
+
+    assert a.fingerprint() != b.fingerprint()
+
+
+def test_every_entity_kind_shares_the_corpus_key():
+    """The kind is already part of an adapter's path
+    (platform/direction/kind/fingerprint), so repeating it in the hash would
+    make two names for one thing."""
+    a = _corpus()
+
+    assert a.entity_fingerprint(EntityKind.AGENT) == a.fingerprint()
+    assert a.entity_fingerprint(EntityKind.TOOL) == a.entity_fingerprint(EntityKind.AGENT)
 
 
 # ----------------------------------------------------------------------
@@ -499,14 +516,30 @@ def test_the_second_build_of_an_unchanged_schema_makes_no_model_call(tmp_path):
     assert provider.calls == calls_after_build
 
 
-def test_a_schema_that_moved_forces_a_rebuild(tmp_path):
+def test_a_platform_version_bump_forces_a_rebuild(tmp_path):
     orchestrator = Orchestrator(store=FoundryStore(tmp_path), sandbox=GreenSandbox())
     orchestrator.ensure_adapter(_corpus(), Direction.IMPORT, EntityKind.AGENT)
-    moved = orchestrator.ensure_adapter(
+
+    bumped = _corpus()
+    bumped.declared_versions = dict(bumped.declared_versions, adk="99.0.0")
+    moved = orchestrator.ensure_adapter(bumped, Direction.IMPORT, EntityKind.AGENT)
+
+    assert moved.origin in ("built", "rebuilt")
+    assert not moved.from_cache
+
+
+def test_a_field_the_vendor_added_reuses_the_cached_adapter(tmp_path):
+    """The counterpart to the version bump: the same platform versions hit the
+    cache even after a tenant grew a field, which is the whole point of shipping
+    a build rather than making every user pay for their own."""
+    orchestrator = Orchestrator(store=FoundryStore(tmp_path), sandbox=GreenSandbox())
+    orchestrator.ensure_adapter(_corpus(), Direction.IMPORT, EntityKind.AGENT)
+
+    again = orchestrator.ensure_adapter(
         _corpus(extra_field="bot.newField"), Direction.IMPORT, EntityKind.AGENT
     )
-    assert moved.origin == "rebuilt"
-    assert not moved.from_cache
+
+    assert again.from_cache
 
 
 def test_rebuild_ignores_a_perfectly_good_cache_entry(tmp_path):

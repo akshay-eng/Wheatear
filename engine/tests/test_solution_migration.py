@@ -313,7 +313,7 @@ def test_a_delegation_cycle_terminates():
 
 def test_names_are_made_orchestrate_legal():
     assert slug("ITSM Agent") == "ITSM_Agent"
-    assert slug("crd07_Candidate.agent-v2") == "crd07_Candidate_agent_v2"
+    assert slug("acme_Candidate.agent-v2") == "acme_Candidate_agent_v2"
     assert slug("--HR--") == "HR"
 
 
@@ -330,13 +330,55 @@ def test_a_taken_name_is_numbered_rather_than_overwritten():
 # ----------------------------------------------------------------------
 
 
-def test_an_empty_store_says_so_before_a_migration_starts(tmp_path: Path):
+def test_a_fresh_machine_is_ready_from_the_shipped_adapters(tmp_path: Path):
+    """The point of shipping a build. A store that has never been probed picks
+    up the adapters that travel with Wheatear and can migrate immediately --
+    no probe, no model call, no container.
+    """
+    ready, reason = adapters_ready(FoundryStore(tmp_path))
+
+    assert ready is True
+    assert "cached adapter" in reason
+    # They were installed into the local store, not read from assets each time.
+    assert list(tmp_path.rglob("artifact.json"))
+
+
+def test_a_machine_with_no_shipped_assets_says_what_to_run(tmp_path, monkeypatch):
     """Checked up front: a missing adapter stops the first stage outright, and
     finding out after the user picked an environment and four agents is worse."""
+    from wheatear.pipeline import solution_migration
+
+    monkeypatch.setattr(solution_migration, "ensure_shipped", lambda store, report=None: 0)
+
     ready, reason = adapters_ready(FoundryStore(tmp_path))
 
     assert ready is False
     assert "foundry corridor" in reason
+
+
+def test_a_broken_assets_tree_is_reported_rather_than_looking_empty(tmp_path):
+    """"Nothing shipped yet" and "what shipped is broken" are different, and
+    only one of them is a bug in this repository. The first version returned 0
+    on any exception, so a corpus that failed to validate was indistinguishable
+    from an assets tree that was not there."""
+    from wheatear.pipeline.solution_migration import ensure_shipped
+
+    said = []
+    broken = tmp_path / "assets"
+    (broken / "copilot-studio" / "corpora").mkdir(parents=True)
+    (broken / "copilot-studio" / "corpora" / "x.json").write_text("{not json")
+
+    import wheatear.assets as assets_mod
+
+    original = assets_mod.ASSETS
+    try:
+        assets_mod.ASSETS = broken
+        installed = ensure_shipped(FoundryStore(tmp_path / "store"), said.append)
+    finally:
+        assets_mod.ASSETS = original
+
+    assert installed == 0
+    assert any("could not be loaded" in event.text for event in said)
 
 
 # ----------------------------------------------------------------------

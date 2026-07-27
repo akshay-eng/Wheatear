@@ -1,0 +1,467 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "copilot-studio",
+  "direction": "import",
+  "entity_kind": "agent",
+  "schema_fingerprint": "435c6a63ad313e79bc075911843ae62aae99ff0a3dd3da71d486c7785961877c",
+  "ir_version": "wheatear/v1",
+  "mappings": [
+    {
+      "target_path": "agent_style",
+      "source_paths": [
+        "configuration.isAgentConnectable"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.8,
+      "rationale": "The agent's style can be derived from the boolean `configuration.isAgentConnectable`, likely mapping `true` to a specific style string like 'Connectable'."
+    },
+    {
+      "target_path": "content_moderation",
+      "source_paths": [
+        "configuration.aISettings.contentModeration"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (configuration.aISettings.contentModeration -> content_moderation) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "description",
+      "source_paths": [
+        "gpt.botcomponent.description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (gpt.botcomponent.description -> description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "existing_instructions",
+      "source_paths": [
+        "gpt.data.instructions"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `gpt.data.instructions` contains the agent's system prompt, which is a direct match for the target's `existing_instructions`."
+    },
+    {
+      "target_path": "instructions",
+      "source_paths": [
+        "gpt.data.instructions"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (gpt.data.instructions -> instructions) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "model_family",
+      "source_paths": [
+        "gpt.data.aISettings.model.modelNameHint"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "The model family (e.g., 'GPT') can be derived by parsing the more specific `gpt.data.aISettings.model.modelNameHint` (e.g., 'GPT55Chat')."
+    },
+    {
+      "target_path": "model_hint",
+      "source_paths": [
+        "gpt.data.aISettings.model.modelNameHint"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `gpt.data.aISettings.model.modelNameHint` directly provides the specific model name hint for the agent."
+    },
+    {
+      "target_path": "name",
+      "source_paths": [
+        "bot.name"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 1.0,
+      "rationale": "The source field `bot.name` is the required primary identifier for the agent, which directly corresponds to the target `name` field."
+    },
+    {
+      "target_path": "source_platform",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": "copilot-studio",
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 1.0,
+      "rationale": "Every record this adapter converts came from copilot-studio."
+    },
+    {
+      "target_path": "spec_version",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": "wheatear/v1",
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 1.0,
+      "rationale": "The IR revision this adapter was compiled against (wheatear/v1)."
+    },
+    {
+      "target_path": "web_search",
+      "source_paths": [
+        "gpt.data.gptCapabilities.webBrowsing"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `gpt.data.gptCapabilities.webBrowsing` is a boolean flag that directly corresponds to the `web_search` capability."
+    }
+  ],
+  "flags": [
+    {
+      "path": "channels[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `channels[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "review_required",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `review_required`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "starter_prompts[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `starter_prompts[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "translation_confidence",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `translation_confidence`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "translation_notes[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `translation_notes[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "welcome_message",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `welcome_message`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "bot.@schemaname",
+      "reason": "lossy",
+      "detail": "`bot.@schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.authenticationmode",
+      "reason": "lossy",
+      "detail": "`bot.authenticationmode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.authenticationtrigger",
+      "reason": "lossy",
+      "detail": "`bot.authenticationtrigger` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.iconbase64",
+      "reason": "lossy",
+      "detail": "`bot.iconbase64` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.iscustomizable",
+      "reason": "lossy",
+      "detail": "`bot.iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.language",
+      "reason": "lossy",
+      "detail": "`bot.language` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.runtimeprovider",
+      "reason": "lossy",
+      "detail": "`bot.runtimeprovider` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.template",
+      "reason": "lossy",
+      "detail": "`bot.template` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "bot.timezoneruleversionnumber",
+      "reason": "lossy",
+      "detail": "`bot.timezoneruleversionnumber` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "collaborators[].botcomponent.@schemaname",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.@schemaname` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.componenttype",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.componenttype` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.description",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.description` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.iscustomizable",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.name",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.name` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.parentbotid.schemaname",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.parentbotid.schemaname` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.statecode",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.statecode` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].botcomponent.statuscode",
+      "reason": "lossy",
+      "detail": "`collaborators[].botcomponent.statuscode` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.action.botSchemaName",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.action.botSchemaName` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.action.historyType.kind",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.action.historyType.kind` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.action.kind",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.action.kind` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.kind",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.kind` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.modelDescription",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.modelDescription` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[].data.modelDisplayName",
+      "reason": "lossy",
+      "detail": "`collaborators[].data.modelDisplayName` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "configuration.$kind",
+      "reason": "lossy",
+      "detail": "`configuration.$kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.aISettings.$kind",
+      "reason": "lossy",
+      "detail": "`configuration.aISettings.$kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.aISettings.isFileAnalysisEnabled",
+      "reason": "lossy",
+      "detail": "`configuration.aISettings.isFileAnalysisEnabled` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.aISettings.isSemanticSearchEnabled",
+      "reason": "lossy",
+      "detail": "`configuration.aISettings.isSemanticSearchEnabled` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.aISettings.optInUseLatestModels",
+      "reason": "lossy",
+      "detail": "`configuration.aISettings.optInUseLatestModels` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.aISettings.useModelKnowledge",
+      "reason": "lossy",
+      "detail": "`configuration.aISettings.useModelKnowledge` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.gPTSettings.$kind",
+      "reason": "lossy",
+      "detail": "`configuration.gPTSettings.$kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.gPTSettings.defaultSchemaName",
+      "reason": "lossy",
+      "detail": "`configuration.gPTSettings.defaultSchemaName` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.recognizer.$kind",
+      "reason": "lossy",
+      "detail": "`configuration.recognizer.$kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "configuration.settings.GenerativeActionsEnabled",
+      "reason": "lossy",
+      "detail": "`configuration.settings.GenerativeActionsEnabled` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.@schemaname",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.@schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.componenttype",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.componenttype` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.iscustomizable",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.name",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.name` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.parentbotid.schemaname",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.parentbotid.schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.statecode",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.statecode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.botcomponent.statuscode",
+      "reason": "lossy",
+      "detail": "`gpt.botcomponent.statuscode` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "gpt.data.displayName",
+      "reason": "lossy",
+      "detail": "`gpt.data.displayName` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "gpt.data.kind",
+      "reason": "lossy",
+      "detail": "`gpt.data.kind` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "agent_style",
+      "reason": "semantic_ambiguity",
+      "detail": "`agent_style` is derived rather than carried over: The agent's style can be derived from the boolean `configuration.isAgentConnectable`, likely mapping `true` to a specific style string like 'Connectable'.",
+      "severity": "warn"
+    },
+    {
+      "path": "model_family",
+      "reason": "semantic_ambiguity",
+      "detail": "`model_family` is derived rather than carried over: The model family (e.g., 'GPT') can be derived by parsing the more specific `gpt.data.aISettings.model.modelNameHint` (e.g., 'GPT55Chat').",
+      "severity": "warn"
+    }
+  ],
+  "notes": [
+    "Seeded `source_platform` = 'copilot-studio', `spec_version` = 'wheatear/v1': the adapter knows these without reading a record.",
+    "Deterministic alignment settled 3 of 15 target field(s).",
+    "6 target field(s) had no candidate source at all and were flagged without a model call.",
+    "The model adjudicated 6 remaining field(s).",
+    "`tools` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`knowledge` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`connections` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`collaborators` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`topics` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`guidelines` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "The model contributed 6 extra test case(s).",
+    "2 of 2 derived field(s) were implemented.",
+    "Attempt 1 failed; revised the derived fields."
+  ],
+  "generator": "GoogleProvider"
+}

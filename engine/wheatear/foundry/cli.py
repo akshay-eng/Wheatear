@@ -16,6 +16,7 @@ built in steps and each step judged before the next one runs.
     foundry adapters               what is cached
     foundry show <platform>        the spec and the generated code
     foundry run <platform>         apply a cached adapter to a file of records
+    foundry ship                   strip a built corridor into engine/assets/
 """
 
 from __future__ import annotations
@@ -493,3 +494,40 @@ def forget(platform, direction, entity, store_root):
 def register(main: click.Group) -> None:
     """Attach the foundry commands to the top-level CLI."""
     main.add_command(foundry)
+
+
+@foundry.command()
+@click.option("--store-root", default=None, help="Read the build from here instead of the default store.")
+@click.option("--to", "destination", default=None, help="Write to here instead of engine/assets/.")
+@click.option("--platform", "platforms", multiple=True, help="Only these platforms (repeatable).")
+def ship(store_root, destination, platforms):
+    """Publish a locally-built corridor as shippable assets.
+
+    Strips what a probe saw from a tenant -- sample records, observed values,
+    single-value "enums", generated test bodies -- and keeps the field layout
+    and the compiled adapter, which belong to the vendor rather than to
+    whoever ran the probe.
+
+    Adapters are keyed on the platform versions they were built against, so
+    anyone on those versions loads them and calls no model at all.
+    """
+    from wheatear.assets import ASSETS
+    from wheatear.foundry.shipping import ship as ship_assets
+
+    target = Path(destination) if destination else ASSETS
+    report = ship_assets(_store(store_root), target, list(platforms) or None)
+
+    click.echo(f"shipped to {target}\n")
+    for name in report.corpora:
+        click.echo(f"  corpus   {name}")
+    for name in sorted(report.adapters):
+        click.echo(f"  adapter  {name}")
+    click.echo(f"\n  {report.summary()}")
+    if report.skipped_unverified:
+        click.echo(
+            "\n  Unverified adapters are not shipped -- they are worth reading and "
+            "finishing by hand, and not worth publishing to people who will run them "
+            "unattended:"
+        )
+        for name in sorted(set(report.skipped_unverified)):
+            click.echo(f"    {name}")

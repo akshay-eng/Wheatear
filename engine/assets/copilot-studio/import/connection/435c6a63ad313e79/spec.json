@@ -1,0 +1,62 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "copilot-studio",
+  "direction": "import",
+  "entity_kind": "connection",
+  "schema_fingerprint": "435c6a63ad313e79bc075911843ae62aae99ff0a3dd3da71d486c7785961877c",
+  "ir_version": "wheatear/v1",
+  "mappings": [],
+  "flags": [
+    {
+      "path": "auth_type",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `auth_type`; it will be left at its default.",
+      "severity": "block"
+    },
+    {
+      "path": "ref",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `ref`; it will be left at its default.",
+      "severity": "block"
+    },
+    {
+      "path": "review_required",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `review_required`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "source_ref",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `source_ref`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "botcomponent_connectionreference[].@botcomponentid.schemaname",
+      "reason": "lossy",
+      "detail": "`botcomponent_connectionreference[].@botcomponentid.schemaname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent_connectionreference[].@connectionreferenceid.connectionreferencelogicalname",
+      "reason": "lossy",
+      "detail": "`botcomponent_connectionreference[].@connectionreferenceid.connectionreferencelogicalname` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "botcomponent_connectionreference[].iscustomizable",
+      "reason": "lossy",
+      "detail": "`botcomponent_connectionreference[].iscustomizable` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    }
+  ],
+  "notes": [
+    "Deterministic alignment settled 0 of 4 target field(s).",
+    "4 target field(s) had no candidate source at all and were flagged without a model call.",
+    "Dropped proposed case `guid_with_braces`: it asserts on id, which are not target fields.",
+    "Dropped proposed case `legacy_pva_prefix`: it asserts on logical_name, which are not target fields.",
+    "Dropped proposed case `odata_annotations`: it asserts on id, logical_name, @odata.etag, connectionreferenceid@OData.Community.Display.V1.FormattedValue, which are not target fields.",
+    "Dropped proposed case `managed_solution_component`: it asserts on is_managed, component_state, which are not target fields."
+  ],
+  "generator": "deterministic"
+}

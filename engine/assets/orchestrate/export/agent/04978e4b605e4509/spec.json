@@ -1,0 +1,1580 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "orchestrate",
+  "direction": "export",
+  "entity_kind": "agent",
+  "schema_fingerprint": "04978e4b605e450910ea434fd63809a7a278811dec8b5de3dea17ca6ffd0d36a",
+  "ir_version": "wheatear/v1",
+  "mappings": [
+    {
+      "target_path": "additional_properties.starter_prompts.customize[].prompt",
+      "source_paths": [
+        "starter_prompts[]"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "This requires a structural transformation, mapping each string from the source `starter_prompts` array to the `prompt` field of an object in the target array."
+    },
+    {
+      "target_path": "additional_properties.starter_prompts.customize[].state",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": "active",
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The state for starter prompts is consistently `active` and can be set as a constant."
+    },
+    {
+      "target_path": "additional_properties.welcome_content.description",
+      "source_paths": [
+        "description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (description -> additional_properties.welcome_content.description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "additional_properties.welcome_content.is_default_voice_greeting",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": false,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "This field appears to be a constant `False` based on its sample values and lacks a corresponding source field."
+    },
+    {
+      "target_path": "additional_properties.welcome_content.welcome_message",
+      "source_paths": [
+        "welcome_message"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (welcome_message -> additional_properties.welcome_content.welcome_message) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "chat_with_docs.agent_query_description",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": "The query to search for in the knowledge base",
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "This target field is a fixed string and does not depend on any source data."
+    },
+    {
+      "target_path": "chat_with_docs.confidence_thresholds.response_confidence_threshold",
+      "source_paths": [
+        "translation_confidence"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.7,
+      "rationale": "The target enum value must be derived by mapping the numeric source 'translation_confidence' to the appropriate string category."
+    },
+    {
+      "target_path": "chat_with_docs.confidence_thresholds.retrieval_confidence_threshold",
+      "source_paths": [
+        "translation_confidence"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.7,
+      "rationale": "The target enum value must be derived by mapping the numeric source 'translation_confidence' to the appropriate string category."
+    },
+    {
+      "target_path": "chat_with_docs.generation.model_id",
+      "source_paths": [
+        "model_hint",
+        "model_family"
+      ],
+      "transform": "coalesce",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "The model ID can be taken from 'model_hint' or 'model_family', as both relate to the model used for generation."
+    },
+    {
+      "target_path": "chat_with_docs.generation.prompt_instruction",
+      "source_paths": [
+        "instructions",
+        "existing_instructions"
+      ],
+      "transform": "coalesce",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The target prompt instruction directly maps from the available source instruction fields."
+    },
+    {
+      "target_path": "chat_with_docs.query_rewrite.model_id",
+      "source_paths": [
+        "model_hint",
+        "model_family"
+      ],
+      "transform": "coalesce",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "The source provides a general model identifier which can be used for the query rewrite model, as no distinct rewrite model is specified."
+    },
+    {
+      "target_path": "chat_with_docs.vector_index.embeddings_model_name",
+      "source_paths": [
+        "model_hint"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.8,
+      "rationale": "The source field `model_hint` is the most likely candidate to contain the specific name of the embeddings model."
+    },
+    {
+      "target_path": "description",
+      "source_paths": [
+        "description"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.9,
+      "rationale": "Field names agree (description -> description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "display_name",
+      "source_paths": [
+        "name"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `name` directly corresponds to the target's `display_name`."
+    },
+    {
+      "target_path": "instructions",
+      "source_paths": [
+        "instructions"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (instructions -> instructions) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "llm_config.model",
+      "source_paths": [
+        "model_family"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "The `model_family` from the source can be used to populate the target `model` array, likely by wrapping the single string value in a list."
+    },
+    {
+      "target_path": "name",
+      "source_paths": [
+        "name"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.9,
+      "rationale": "Field names agree (name -> name) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "spec_version",
+      "source_paths": [
+        "spec_version"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (spec_version -> spec_version) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "starter_prompts.prompts[].id",
+      "source_paths": [
+        "starter_prompts[]"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.8,
+      "rationale": "The target 'id' must be generated for each source prompt, as no identifier exists in the source array of strings."
+    },
+    {
+      "target_path": "starter_prompts.prompts[].prompt",
+      "source_paths": [
+        "starter_prompts[]"
+      ],
+      "transform": "copy",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 1.0,
+      "rationale": "The source array of strings directly maps to the 'prompt' field in the target array of prompt objects."
+    },
+    {
+      "target_path": "starter_prompts.prompts[].state",
+      "source_paths": [],
+      "transform": "constant",
+      "constant": "active",
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.0,
+      "rationale": "The source starter prompts do not have a state, so a default state of 'active' will be assigned to all migrated prompts."
+    },
+    {
+      "target_path": "starter_prompts.prompts[].title",
+      "source_paths": [
+        "starter_prompts[]"
+      ],
+      "transform": "derive",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.8,
+      "rationale": "A 'title' needs to be derived from the source prompt string, for example, by truncating it."
+    },
+    {
+      "target_path": "structured_output.description",
+      "source_paths": [
+        "description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (description -> structured_output.description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "structured_output.items.description",
+      "source_paths": [
+        "description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (description -> structured_output.items.description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "style",
+      "source_paths": [
+        "agent_style"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 1.0,
+      "rationale": "The source field `agent_style` is a direct semantic match for the target `style`."
+    },
+    {
+      "target_path": "welcome_content.description",
+      "source_paths": [
+        "description"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": false,
+      "confidence": 0.9,
+      "rationale": "Field names agree (description -> welcome_content.description) with compatible types and no competing candidate."
+    },
+    {
+      "target_path": "welcome_content.welcome_message",
+      "source_paths": [
+        "welcome_message"
+      ],
+      "transform": "rename",
+      "constant": null,
+      "enum_map": {},
+      "default": null,
+      "required": true,
+      "confidence": 0.9,
+      "rationale": "Field names agree (welcome_message -> welcome_content.welcome_message) with compatible types and no competing candidate."
+    }
+  ],
+  "flags": [
+    {
+      "path": "additional_properties.context_settings",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.context_settings`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.hidden_tools[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.hidden_tools[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.icon",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.icon`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.realtime_agent_settings.enable_reasoning_filter",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.realtime_agent_settings.enable_reasoning_filter`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.realtime_agent_settings.enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.realtime_agent_settings.enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.starter_prompts.customize[].id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.starter_prompts.customize[].id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.starter_prompts.customize[].subtitle",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.starter_prompts.customize[].subtitle`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.starter_prompts.customize[].title",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `additional_properties.starter_prompts.customize[].title`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "agent_mapping.*",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `agent_mapping.*`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "bundled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `bundled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "bundled_agent_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `bundled_agent_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "category",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `category`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.citations.citation_title",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.citations.citation_title`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.citations.citations_shown",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.citations.citations_shown`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.display_text_connectivity_issue",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.display_text_connectivity_issue`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.display_text_no_results_found",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.display_text_no_results_found`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.generated_response_length",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.generated_response_length`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.idk_message",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.idk_message`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.generation.max_docs_passed_to_llm",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.generation.max_docs_passed_to_llm`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.hap_filtering.output.enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.hap_filtering.output.enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.hap_filtering.output.threshold",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.hap_filtering.output.threshold`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.query_rewrite.enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.query_rewrite.enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.query_source",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.query_source`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.supports_full_document",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.supports_full_document`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.vector_index.chunk_overlap",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.vector_index.chunk_overlap`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.vector_index.chunk_size",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.vector_index.chunk_size`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.vector_index.extraction_strategy",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.vector_index.extraction_strategy`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "chat_with_docs.vector_index.limit",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `chat_with_docs.vector_index.limit`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "collaborators[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `collaborators[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.compaction_sliding_window",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.compaction_sliding_window`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.context_compaction_enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.context_compaction_enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.context_compaction_threshold",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.context_compaction_threshold`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.large_message_chunk_size",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.large_message_chunk_size`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.large_message_detect_structured",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.large_message_detect_structured`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.large_message_target_summary",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.large_message_target_summary`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "compaction_settings.large_message_threshold",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `compaction_settings.large_message_threshold`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "context_access_enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `context_access_enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "context_variables[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `context_variables[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "created_by",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `created_by`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "created_on",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `created_on`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "custom_agents_metadata",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `custom_agents_metadata`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "custom_join_tool",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `custom_join_tool`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "deleted_at",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `deleted_at`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "deleted_by",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `deleted_by`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].current_version",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].current_version`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].enable_wxg_integration",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].enable_wxg_integration`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].name",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].name`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].voice",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].voice`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "environments[].wxg_metrics_url",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `environments[].wxg_metrics_url`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "guidelines[].action",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `guidelines[].action`; it will be left at its default.",
+      "severity": "block"
+    },
+    {
+      "path": "guidelines[].condition",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `guidelines[].condition`; it will be left at its default.",
+      "severity": "block"
+    },
+    {
+      "path": "guidelines[].display_name",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `guidelines[].display_name`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "guidelines[].tool",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `guidelines[].tool`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "hidden",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `hidden`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "hide_reasoning",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `hide_reasoning`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "icon",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `icon`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "is_schedulable",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `is_schedulable`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "kind",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `kind`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "knowledge_base[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `knowledge_base[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "language_support[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `language_support[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.anthropic_beta",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.anthropic_beta`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.anthropic_version",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.anthropic_version`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.audio",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.audio`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.best_of",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.best_of`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.context",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.context`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.decoding_method",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.decoding_method`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.disable_parallel_tool_use",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.disable_parallel_tool_use`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.disable_tool_validation",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.disable_tool_validation`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.echo",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.echo`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.examples",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.examples`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.frequency_penalty",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.frequency_penalty`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.logit_bias",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.logit_bias`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.logprobs",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.logprobs`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.max_completion_tokens",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.max_completion_tokens`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.max_tokens",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.max_tokens`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.metadata",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.metadata`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.modalities",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.modalities`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.n",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.n`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.parallel_tool_calls",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.parallel_tool_calls`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.prediction",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.prediction`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.presence_penalty",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.presence_penalty`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.project_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.project_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.prompt",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.prompt`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.reasoning_effort",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.reasoning_effort`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.response_format",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.response_format`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.safety_settings",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.safety_settings`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.seed",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.seed`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.service_tier",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.service_tier`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.space_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.space_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.stop",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.stop`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.store",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.store`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.stream",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.stream`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.temperature",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.temperature`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.thinking",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.thinking`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.thinking_level",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.thinking_level`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.top_k",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.top_k`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.top_logprobs",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.top_logprobs`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.top_p",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.top_p`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.user",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.user`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "llm_config.verbosity",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `llm_config.verbosity`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "memory_enabled",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `memory_enabled`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "plugins.agent_post_invoke[].plugin_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `plugins.agent_post_invoke[].plugin_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "plugins.agent_post_invoke[].plugin_name",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `plugins.agent_post_invoke[].plugin_name`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "plugins.agent_pre_invoke[].plugin_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `plugins.agent_pre_invoke[].plugin_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "plugins.agent_pre_invoke[].plugin_name",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `plugins.agent_pre_invoke[].plugin_name`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "publisher",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `publisher`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "restrictions",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `restrictions`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "skills[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `skills[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "starter_prompts.is_default_prompts",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `starter_prompts.is_default_prompts`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "starter_prompts.prompts[].subtitle",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `starter_prompts.prompts[].subtitle`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.acceptedFileExtensions[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.acceptedFileExtensions[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.aliasName",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.aliasName`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].acceptedFileExtensions[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].acceptedFileExtensions[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].aliasName",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].aliasName`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].default",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].default`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].description",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].description`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].enum[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].enum[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].format",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].format`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].in_field",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].in_field`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].maxItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].maxItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].maxLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].maxLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].maxSizePerFile",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].maxSizePerFile`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].maxTotalSize",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].maxTotalSize`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].maximum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].maximum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].minItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].minItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].minLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].minLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].minimum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].minimum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].pattern",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].pattern`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].required[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].required[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].title",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].title`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].type",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].type`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].uniqueItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].uniqueItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.anyOf[].wrap_data",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.anyOf[].wrap_data`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.default",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.default`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.enum[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.enum[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.format",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.format`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.in_field",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.in_field`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.acceptedFileExtensions[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.acceptedFileExtensions[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.aliasName",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.aliasName`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.default",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.default`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.enum[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.enum[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.format",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.format`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.in_field",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.in_field`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.maxItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.maxItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.maxLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.maxLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.maxSizePerFile",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.maxSizePerFile`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.maxTotalSize",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.maxTotalSize`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.maximum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.maximum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.minItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.minItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.minLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.minLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.minimum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.minimum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.pattern",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.pattern`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.required[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.required[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.title",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.title`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.type",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.type`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.uniqueItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.uniqueItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.items.wrap_data",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.items.wrap_data`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.maxItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.maxItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.maxLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.maxLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.maxSizePerFile",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.maxSizePerFile`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.maxTotalSize",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.maxTotalSize`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.maximum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.maximum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.minItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.minItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.minLength",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.minLength`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.minimum",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.minimum`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.pattern",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.pattern`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.required[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.required[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.title",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.title`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.type",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.type`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.uniqueItems",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.uniqueItems`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "structured_output.wrap_data",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `structured_output.wrap_data`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "supported_apps[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `supported_apps[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "sync_tool_flow_interactions",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `sync_tool_flow_interactions`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "tags",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `tags`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "tenant_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `tenant_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "toolkits[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `toolkits[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "tools[]",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `tools[]`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "updated_at",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `updated_at`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "updated_by",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `updated_by`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "voice_configuration",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `voice_configuration`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "voice_configuration_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `voice_configuration_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "welcome_content.is_default_message",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `welcome_content.is_default_message`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "workspace",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `workspace`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "workspace_id",
+      "reason": "no_target_equivalent",
+      "detail": "No source field produces `workspace_id`; it will be left at its default.",
+      "severity": "info"
+    },
+    {
+      "path": "channels[]",
+      "reason": "lossy",
+      "detail": "`channels[]` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "content_moderation",
+      "reason": "lossy",
+      "detail": "`content_moderation` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "review_required",
+      "reason": "lossy",
+      "detail": "`review_required` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "source_platform",
+      "reason": "lossy",
+      "detail": "`source_platform` has no counterpart on the target and is dropped.",
+      "severity": "warn"
+    },
+    {
+      "path": "translation_notes[]",
+      "reason": "lossy",
+      "detail": "`translation_notes[]` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "web_search",
+      "reason": "lossy",
+      "detail": "`web_search` has no counterpart on the target and is dropped.",
+      "severity": "info"
+    },
+    {
+      "path": "additional_properties.starter_prompts.customize[].prompt",
+      "reason": "semantic_ambiguity",
+      "detail": "`additional_properties.starter_prompts.customize[].prompt` is derived rather than carried over: This requires a structural transformation, mapping each string from the source `starter_prompts` array to the `prompt` field of an object in the target array.",
+      "severity": "warn"
+    },
+    {
+      "path": "chat_with_docs.confidence_thresholds.response_confidence_threshold",
+      "reason": "semantic_ambiguity",
+      "detail": "`chat_with_docs.confidence_thresholds.response_confidence_threshold` is derived rather than carried over: The target enum value must be derived by mapping the numeric source 'translation_confidence' to the appropriate string category.",
+      "severity": "warn"
+    },
+    {
+      "path": "chat_with_docs.confidence_thresholds.retrieval_confidence_threshold",
+      "reason": "semantic_ambiguity",
+      "detail": "`chat_with_docs.confidence_thresholds.retrieval_confidence_threshold` is derived rather than carried over: The target enum value must be derived by mapping the numeric source 'translation_confidence' to the appropriate string category.",
+      "severity": "warn"
+    },
+    {
+      "path": "llm_config.model",
+      "reason": "semantic_ambiguity",
+      "detail": "`llm_config.model` is derived rather than carried over: The `model_family` from the source can be used to populate the target `model` array, likely by wrapping the single string value in a list.",
+      "severity": "warn"
+    },
+    {
+      "path": "starter_prompts.prompts[].id",
+      "reason": "semantic_ambiguity",
+      "detail": "`starter_prompts.prompts[].id` is derived rather than carried over: The target 'id' must be generated for each source prompt, as no identifier exists in the source array of strings.",
+      "severity": "warn"
+    },
+    {
+      "path": "starter_prompts.prompts[].title",
+      "reason": "semantic_ambiguity",
+      "detail": "`starter_prompts.prompts[].title` is derived rather than carried over: A 'title' needs to be derived from the source prompt string, for example, by truncating it.",
+      "severity": "warn"
+    }
+  ],
+  "notes": [
+    "Deterministic alignment settled 10 of 216 target field(s).",
+    "167 target field(s) had no candidate source at all and were flagged without a model call.",
+    "The model adjudicated 39 remaining field(s).",
+    "`tools` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`knowledge` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`connections` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`collaborators` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`topics` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "`guidelines` was excluded: it is composed from other entity kinds' adapters, not mapped from a field on this record.",
+    "Dropped proposed case `empty_starter_prompts_array`: it asserts on starter_prompts, additional_properties.starter_prompts, which are not target fields.",
+    "Dropped proposed case `unstructured_starter_prompt`: it asserts on starter_prompts.prompts[0].prompt, starter_prompts.prompts[0].title, which are not target fields.",
+    "The model contributed 4 extra test case(s).",
+    "9 of 9 derived field(s) were implemented."
+  ],
+  "generator": "GoogleProvider"
+}

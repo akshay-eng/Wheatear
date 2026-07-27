@@ -1,0 +1,2070 @@
+{
+  "spec_version": "wheatear.foundry/v1",
+  "platform": "copilot-studio",
+  "platform_version": null,
+  "declared_versions": {
+    "dataverse-api": "v9.2",
+    "ir": "wheatear/v1"
+  },
+  "captured_at": "2026-07-27T22:11:44.194559Z",
+  "entities": [
+    {
+      "kind": "agent",
+      "name": "agent",
+      "origin": "export",
+      "sample_count": 3,
+      "fields": [
+        {
+          "path": "bot",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "bot.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.authenticationmode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.authenticationtrigger",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.iconbase64",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.language",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.runtimeprovider",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.template",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "bot.timezoneruleversionnumber",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators",
+          "types": [
+            "array"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[]",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].botcomponent",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].botcomponent.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.componenttype",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.description",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.name",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.parentbotid",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].botcomponent.parentbotid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.statecode",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].botcomponent.statuscode",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].data.action",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].data.action.botSchemaName",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data.action.historyType",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "collaborators[].data.action.historyType.kind",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data.action.kind",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data.kind",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data.modelDescription",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "collaborators[].data.modelDisplayName",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3333,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "configuration.$kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "configuration.aISettings.$kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings.contentModeration",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings.isFileAnalysisEnabled",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings.isSemanticSearchEnabled",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings.optInUseLatestModels",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.aISettings.useModelKnowledge",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.gPTSettings",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "configuration.gPTSettings.$kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.gPTSettings.defaultSchemaName",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.isAgentConnectable",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.recognizer",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "configuration.recognizer.$kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "configuration.settings",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "configuration.settings.GenerativeActionsEnabled",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.botcomponent",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.botcomponent.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.componenttype",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.description",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.6667,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.parentbotid",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.botcomponent.parentbotid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.statecode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.botcomponent.statuscode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.data",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.data.aISettings",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.data.aISettings.model",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.data.aISettings.model.modelNameHint",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.data.displayName",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.6667,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.data.gptCapabilities",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "gpt.data.gptCapabilities.webBrowsing",
+          "types": [
+            "boolean"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.data.instructions",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "gpt.data.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        }
+      ],
+      "samples": [],
+      "notes": []
+    },
+    {
+      "kind": "connection",
+      "name": "connection",
+      "origin": "export",
+      "sample_count": 1,
+      "fields": [
+        {
+          "path": "botcomponent_connectionreference",
+          "types": [
+            "array"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent_connectionreference[]",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent_connectionreference[].@botcomponentid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent_connectionreference[].@connectionreferenceid.connectionreferencelogicalname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent_connectionreference[].iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        }
+      ],
+      "samples": [],
+      "notes": []
+    },
+    {
+      "kind": "knowledge",
+      "name": "knowledge",
+      "origin": "export",
+      "sample_count": 2,
+      "fields": [
+        {
+          "path": "botcomponent",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.componenttype",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.description",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.filedata",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.filedata.#text",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.filedata.@mimetype",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.parentbotid",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.parentbotid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statecode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statuscode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        }
+      ],
+      "samples": [],
+      "notes": []
+    },
+    {
+      "kind": "tool",
+      "name": "tool",
+      "origin": "export",
+      "sample_count": 2,
+      "fields": [
+        {
+          "path": "botcomponent",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.componenttype",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.parentbotid",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.parentbotid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statecode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statuscode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action.connectionProperties",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action.connectionProperties.mode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.connectionReference",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.dynamicOutputSchema",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action.dynamicOutputSchema.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.dynamicOutputSchema.properties",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action.dynamicOutputSchema.properties.result",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.action.dynamicOutputSchema.properties.result.order",
+          "types": [
+            "integer"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.dynamicOutputSchema.properties.result.type",
+          "types": [
+            "object",
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.action.operationId",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.inputs",
+          "types": [
+            "array"
+          ],
+          "required": false,
+          "occurrence": 0.5,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.inputs[]",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.5,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.inputs[].description",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.5,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.inputs[].kind",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.5,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.inputs[].propertyName",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.5,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.modelDescription",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.modelDisplayName",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.outputMode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.outputs",
+          "types": [
+            "array"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.outputs[]",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.outputs[].name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.outputs[].propertyName",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        }
+      ],
+      "samples": [],
+      "notes": []
+    },
+    {
+      "kind": "topic",
+      "name": "topic",
+      "origin": "export",
+      "sample_count": 39,
+      "fields": [
+        {
+          "path": "botcomponent",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.@schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.componenttype",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.description",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.8462,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.iscustomizable",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.name",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.parentbotid",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "botcomponent.parentbotid.schemaname",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statecode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "botcomponent.statuscode",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.actions",
+          "types": [
+            "array"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.actions[]",
+          "types": [
+            "object"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.actions[].*",
+          "types": [
+            "object",
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.actions[].*.allowInterruption",
+          "types": [
+            "boolean"
+          ],
+          "required": false,
+          "occurrence": 0.0769,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.actions[].*.items",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.0769,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.actions[].*.kind",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.0769,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.actions[].*.speak",
+          "types": [
+            "array"
+          ],
+          "required": false,
+          "occurrence": 0.1538,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.actions[].*.text",
+          "types": [
+            "array"
+          ],
+          "required": false,
+          "occurrence": 0.1538,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.id",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.intent",
+          "types": [
+            "object"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.intent.displayName",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.intent.includeInOnSelectIntent",
+          "types": [
+            "boolean"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.intent.triggerQueries",
+          "types": [
+            "array"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": true
+        },
+        {
+          "path": "data.beginDialog.intent.triggerQueries[]",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.priority",
+          "types": [
+            "integer"
+          ],
+          "required": false,
+          "occurrence": 0.0769,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.beginDialog.triggerBehavior",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.0769,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.kind",
+          "types": [
+            "string"
+          ],
+          "required": true,
+          "occurrence": 1.0,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        },
+        {
+          "path": "data.startBehavior",
+          "types": [
+            "string"
+          ],
+          "required": false,
+          "occurrence": 0.3846,
+          "enum": [],
+          "examples": [],
+          "description": null,
+          "writable": null,
+          "container": false
+        }
+      ],
+      "samples": [],
+      "notes": [
+        "Shape inferred from all 39 record(s); 25 kept as samples."
+      ]
+    }
+  ],
+  "gaps": [
+    {
+      "what": "live Dataverse environment",
+      "reason": "no_credentials",
+      "detail": "",
+      "remedy": "Re-run without --offline to read the Dataverse tables."
+    },
+    {
+      "what": "the Copilot Studio create model",
+      "reason": "no_credentials",
+      "detail": "",
+      "remedy": "Supply the Dataverse URL and a bearer token for it."
+    }
+  ],
+  "notes": []
+}

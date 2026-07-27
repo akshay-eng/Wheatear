@@ -334,6 +334,10 @@ def ir_corpus() -> SchemaCorpus:
     return SchemaCorpus(
         platform=IR_PLATFORM,
         platform_version=IR_SPEC_VERSION,
+        # The IR side is versioned too, and the fingerprint is taken over the
+        # declared versions -- without this it hashes an empty dict and every
+        # IR corpus looks identical regardless of which schema it read.
+        declared_versions={"ir": IR_SPEC_VERSION},
         entities=entities,
         gaps=gaps,
         notes=["Read from wheatear.ir.schema; not probed."],

@@ -22,6 +22,7 @@ build an app -> items index, which is what a bare connector name matches against
 
 from __future__ import annotations
 
+from wheatear.assets import asset
 import json
 import re
 from dataclasses import dataclass, field
@@ -29,8 +30,8 @@ from functools import lru_cache
 from pathlib import Path
 
 _DATA_DIR = Path(__file__).parent / "data"
-DEFAULT_CATALOG_PATH = _DATA_DIR / "catalog-snapshot.json"
-DEFAULT_N8N_NODE_CATALOG_PATH = _DATA_DIR / "n8n-node-catalog-snapshot.json"
+DEFAULT_CATALOG_PATH = asset("orchestrate", "catalog-snapshot.json")
+DEFAULT_N8N_NODE_CATALOG_PATH = asset("n8n", "node-catalog-snapshot.json")
 
 # Confidence floor for a match to be returned at all.
 DEFAULT_MIN_CONFIDENCE = 0.7

@@ -23,12 +23,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from wheatear.assets import asset
 from wheatear.connectors.orchestrate.catalog_client import CatalogArtifact
 
 # Where a snapshot lives when nobody says otherwise. Beside the engine rather
 # than in a data directory: it is a checked-in asset of this repository, the
 # same as the IR schema, and it is meant to ship.
-DEFAULT_SNAPSHOT = Path(__file__).resolve().parents[3] / "catalog-snapshot.json"
+DEFAULT_SNAPSHOT = asset("orchestrate", "catalog-snapshot.json")
 
 
 def snapshot_age_days(path: Path | None = None) -> float | None:

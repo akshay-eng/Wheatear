@@ -502,7 +502,42 @@ def scan_solution(solution: Path) -> _Collected:
     return collected
 
 
-def adapters_ready(store: FoundryStore, platform: str = "copilot-studio") -> tuple[bool, str]:
+def ensure_shipped(store: FoundryStore, report: Reporter = silent) -> int:
+    """Load the adapters that ship with Wheatear into this machine's store.
+
+    Idempotent and cheap: writing a corpus or an artifact that is already there
+    rewrites the same file under the same key. Doing it on every readiness
+    check rather than at install time means a `git pull` that brings newer
+    adapters takes effect on the next run without anybody remembering a step.
+
+    A failure here is reported, not swallowed. Shipped adapters are a shortcut
+    rather than a dependency, so this must not stop a migration -- but the
+    first version returned 0 on any exception and a corpus that failed to
+    validate looked exactly like an assets tree that was not there. The
+    difference matters: one is "nothing shipped yet", the other is "what
+    shipped is broken", and only one of them is a bug in this repository.
+    """
+    try:
+        from wheatear.assets import ASSETS
+        from wheatear.foundry.shipping import install
+
+        return install(ASSETS, store)
+    except Exception as exc:  # noqa: BLE001 - a shortcut, but a loud one when broken
+        report(
+            Event(
+                "ir",
+                f"shipped adapters could not be loaded ({type(exc).__name__}: "
+                f"{' '.join(str(exc).split())[:160]}). Falling back to whatever this "
+                "machine built locally.",
+                "warn",
+            )
+        )
+        return 0
+
+
+def adapters_ready(
+    store: FoundryStore, platform: str = "copilot-studio", report: Reporter = silent
+) -> tuple[bool, str]:
     """Whether this machine can convert records without building anything.
 
     Asked before a migration starts rather than discovered partway through: a
@@ -510,6 +545,13 @@ def adapters_ready(store: FoundryStore, platform: str = "copilot-studio") -> tup
     after the user has picked an environment, a solution and four agents is a
     worse way to learn it.
     """
+    # Shipped adapters first. They are keyed on the platform versions they were
+    # compiled against, so a user on those versions is found by exactly the
+    # lookup a locally-built adapter would have been -- no probe, no model call,
+    # no Docker. This is the default path and the reason most users never build
+    # anything.
+    ensure_shipped(store, report)
+
     corpus = store.latest_corpus(platform)
     if corpus is None:
         return False, (
