@@ -9,6 +9,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from wheatear.llm.usage import Usage
+
 T = TypeVar("T", bound=BaseModel)
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
@@ -25,6 +27,8 @@ class AnthropicProvider:
 
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
+        # See google_provider: published for usage reporting, never estimated.
+        self.last_usage = Usage()
 
     def generate_structured(self, prompt: str, schema: type[T]) -> T:
         tool_name = schema.__name__
@@ -41,6 +45,13 @@ class AnthropicProvider:
             tool_choice={"type": "tool", "name": tool_name},
             messages=[{"role": "user", "content": prompt}],
         )
+
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self.last_usage = Usage(
+                input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+                output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            )
 
         for block in response.content:
             if block.type == "tool_use" and block.name == tool_name:

@@ -22,16 +22,23 @@ PROVIDER_KEY_ENV_DEFAULTS: dict[str, str] = {
 IMPLEMENTED_PROVIDERS = {"anthropic", "google"}
 
 
-def build_provider(provider_name: str, api_key: str) -> LLMProvider:
+def build_provider(provider_name: str, api_key: str, model: str | None = None) -> LLMProvider:
+    """Build a provider, optionally overriding its default model.
+
+    The override matters most in the foundry, where a corridor is dozens of
+    sequential calls and the whole cost is latency: the same eleven adapters
+    that take three quarters of an hour on a frontier model take a few minutes
+    on a fast one, and every answer is checked by generated tests either way.
+    """
     if provider_name == "anthropic":
         from wheatear.llm.anthropic_provider import AnthropicProvider
 
-        return AnthropicProvider(api_key=api_key)
+        return AnthropicProvider(api_key=api_key, **({"model": model} if model else {}))
 
     if provider_name == "google":
         from wheatear.llm.google_provider import GoogleProvider
 
-        return GoogleProvider(api_key=api_key)
+        return GoogleProvider(api_key=api_key, **({"model": model} if model else {}))
 
     raise ValueError(f"Unknown or not-yet-implemented LLM provider '{provider_name}'.")
 
