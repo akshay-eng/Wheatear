@@ -1,21 +1,41 @@
 .DS_Store
 .claude/
 .impeccable/
-DESIGN.md
 
-# Internal development notes -- session handoffs and working briefs.
-HANDOFF.md
+# ---------------------------------------------------------------------------
+# Agent / assistant working files and internal notes.
+# Session handoffs, design briefs and instructions written for a coding
+# assistant. They describe live tenants in detail and are not product docs.
+# ---------------------------------------------------------------------------
 claude.md
+CLAUDE.md
+AGENTS.md
+DESIGN.md
+HANDOFF.md
+HANDOFF-FOUNDRY.md
+orch.md
+.cursor/
+.aider*
+.github/copilot-instructions.md
 
-# Real customer exports used for calibration -- never commit these.
-# (agent exports + migration outputs carry internal endpoints/instructions)
+# ---------------------------------------------------------------------------
+# Customer data. This repository is public.
+#
+# Every path below has held real content at some point: agent instructions,
+# ServiceNow endpoints, knowledge base names, tenant ids, probed schemas.
+# Migration output is generated on demand and never needs committing.
+# ---------------------------------------------------------------------------
 copilot-export/
 /copilot-studio-migration/
-engine/Incident_Managementagent_*-export.*
 engine/copilot-studio-migration/
+engine/Incident_Managementagent_*-export.*
 engine/exports/
 engine/orchestrate-exports/
-orch.md
+orchestrate-exports/
+engine/orchestrate-migration/
+orchestrate-migration/
+*-migration/
+foundry-output/
 test-export.zip
 
 # n8n exploration artifacts -- workflow exports, KB source files, generated
@@ -25,16 +45,45 @@ n8n-export/
 n8n-export.zip
 n8n-feature-matrix/
 
-# Python
+# ---------------------------------------------------------------------------
+# Credentials and captured sessions.
+#
+# A HAR holds live session cookies and anything typed while recording. A
+# console cookie is a live credential: whoever holds it is the signed-in user.
+# None of this belongs in version control even briefly -- a deleted secret
+# stays in the history.
+# ---------------------------------------------------------------------------
+*.har
+cookie*.txt
+cookies.txt
+*.pem
+*.key
+!**/*.key.example
+.env
+.env.*
+!.env.example
+secrets.*
+*credentials*.json
+*_token.txt
+
+# ---------------------------------------------------------------------------
+# Build, cache and editor noise
+# ---------------------------------------------------------------------------
 engine/.venv/
+.venv/
+venv/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 *.pyc
+*.pyo
+build/
+dist/
 
-# IDE / OS local files
 .vscode/
 .idea/
 *.swp
-.env
-.env.*
+*.swo
+*~
