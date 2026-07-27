@@ -133,3 +133,84 @@ def deterministic_instructions(agent: Agent) -> Agent:
             "run with an LLM provider for a higher-fidelity translation."
         )
     return agent
+
+
+# ----------------------------------------------------------------------
+# Descriptions
+# ----------------------------------------------------------------------
+
+
+class AgentDescription(BaseModel):
+    description: str = Field(
+        description=(
+            "One or two sentences, in the third person, stating what this agent does and "
+            "what it does not. Written for someone choosing between agents in a list. No "
+            "marketing language, no mention of migration or tooling."
+        )
+    )
+
+
+# Long enough to be useful in a picker, short enough that nobody skips it.
+MAX_DESCRIPTION = 400
+
+
+def describe_agent(agent: Agent, provider: LLMProvider) -> Agent:
+    """Write a description for an agent whose source platform had none.
+
+    Copilot Studio does not oblige one; watsonx Orchestrate requires it. The
+    fallback of using the agent's own name satisfies the schema and tells a
+    user nothing, and inventing boilerplate about where the agent came from is
+    worse -- it describes the migration rather than the agent.
+
+    So the description is derived from what the agent actually does: its
+    instructions, the tools it can call, the knowledge it can search. That is
+    the same material a person would read to write one, and the result is
+    marked for review because a generated description is a starting point, not
+    a fact about the agent.
+
+    An agent that already has a description is left alone. Returns the same
+    Agent, mutated.
+    """
+    if agent.description:
+        return agent
+
+    parts = [f"Agent name: {agent.name}"]
+    if agent.instructions:
+        parts.append(f"Its instructions:\n{agent.instructions[:4000]}")
+    if agent.tools:
+        parts.append("Tools it can call: " + ", ".join(t.ref for t in agent.tools if t.ref))
+    if agent.knowledge:
+        named = [k.description or k.ref for k in agent.knowledge]
+        parts.append("Knowledge it can search: " + "; ".join(named))
+    if agent.collaborators:
+        parts.append(
+            "Other agents it hands work to: "
+            + ", ".join(c.ref for c in agent.collaborators if c.ref)
+        )
+
+    prompt = (
+        "Write the description for this agent. It had none on the platform it came "
+        "from, and the platform it is moving to requires one.\n\n"
+        + "\n\n".join(parts)
+        + "\n\nDescribe what the agent does, from what you can see above. If its "
+        "instructions say what it must not do or must delegate, that belongs in the "
+        "description too -- it is what stops someone routing the wrong work to it."
+    )
+    try:
+        result = provider.generate_structured(prompt, AgentDescription)
+    except Exception as exc:  # noqa: BLE001 - no description is a gap, not a failed migration
+        agent.translation_notes.append(
+            f"Could not generate a description ({type(exc).__name__}); the agent's name was used."
+        )
+        return agent
+
+    described = " ".join(result.description.split())[:MAX_DESCRIPTION].strip()
+    if not described:
+        return agent
+    agent.description = described
+    agent.review_required = True
+    agent.translation_notes.append(
+        "The description was written from this agent's instructions and tools because "
+        "the source had none. Edit it -- it is a starting point, not a fact."
+    )
+    return agent

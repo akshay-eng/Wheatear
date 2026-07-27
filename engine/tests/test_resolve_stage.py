@@ -364,9 +364,10 @@ def test_marketplace_matching_uses_the_title_and_offering_as_signal():
     assert "management" in text  # from "IT Service Management with ServiceNow"
 
 
-def test_installed_tools_are_searched_before_the_catalog():
-    """A working answer beats a better-sounding one: if the instance can do the
-    job, we never propose an install."""
+def test_an_installed_tool_that_does_the_job_is_preferred_over_a_catalog_one():
+    """Nobody has to install it. The preference is a tie-break, not a veto --
+    see the test below for what happens when the catalog has the better tool.
+    """
     provider = _ScriptedProvider(
         ToolMatch(target_ref="SNOWMCPALL:get_record", verdict="exact", confidence=0.95)
     )
@@ -378,12 +379,45 @@ def test_installed_tools_are_searched_before_the_catalog():
 
     assert tool.ref == "SNOWMCPALL:get_record"
     assert tool.bridge == BridgeStrategy.MCP_CATALOG
-    assert len(provider.prompts) == 1  # the catalog tier was never consulted
+    # One shortlist over everything the target offers, so one model call.
+    assert len(provider.prompts) == 1
 
 
-def test_a_miss_on_the_instance_falls_through_to_the_catalog():
+def test_both_pools_appear_in_the_one_shortlist_the_model_judges():
+    """Searching installed-then-catalog and stopping at the first pool that
+    answered meant a mediocre installed match blocked a better catalog one:
+    `SNOWMCPALL:get_record` scoring 6.2 kept `get_records` scoring 17.3 from
+    ever being seen for a `GetRecords` operation.
+    """
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
+        ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=0.9)
+    )
+    tool = _source_tool()
+
+    resolve_agent_tools(
+        _agent_with(tool), build_catalog(RAW_CATALOG), provider, marketplace=_marketplace()
+    )
+
+    prompt = provider.prompts[0]
+    assert "SNOWMCPALL:get_record" in prompt  # installed
+    assert "servicenow_get_record" in prompt  # catalog
+    assert tool.ref == "servicenow_get_record"
+    assert tool.bridge == BridgeStrategy.CATALOG_INSTALL
+
+
+def test_the_shortlist_says_which_candidates_need_installing():
+    """The difference is a real cost the model has to weigh."""
+    from wheatear.pipeline.resolve import rank_everything
+
+    tool = _source_tool()
+    candidates = rank_everything(tool, build_catalog(RAW_CATALOG), _marketplace())
+    prompt = build_match_prompt(tool, candidates)
+    assert "installed on this instance" in prompt
+    assert "NOT installed yet" in prompt
+
+
+def test_a_catalog_tool_can_win_when_it_is_the_better_answer():
+    provider = _ScriptedProvider(
         ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=0.9),
     )
     tool = _source_tool()
@@ -394,14 +428,13 @@ def test_a_miss_on_the_instance_falls_through_to_the_catalog():
 
     assert tool.ref == "servicenow_get_record"
     assert tool.bridge == BridgeStrategy.CATALOG_INSTALL
-    assert len(provider.prompts) == 2
+    assert len(provider.prompts) == 1
 
 
 def test_a_catalog_hit_never_clears_review_however_confident():
     """It isn't installed, so referencing it would fail at import. Confidence
     doesn't change that."""
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
         ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=1.0),
     )
     tool = _source_tool()
@@ -417,7 +450,6 @@ def test_a_catalog_hit_never_clears_review_however_confident():
 
 def test_a_hallucinated_catalog_ref_falls_back_rather_than_being_written():
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
         ToolMatch(target_ref="servicenow_delete_everything", verdict="exact", confidence=0.99),
     )
     tool = _source_tool()
@@ -456,8 +488,8 @@ def test_the_catalog_prompt_says_parameters_are_unavailable():
 
     prompt = build_match_prompt(_source_tool(), shortlist(_source_tool(), marketplace))
 
-    assert "NOT yet installed" in prompt
-    assert "do not treat missing params as evidence against a match" in prompt
+    assert "NOT installed yet" in prompt
+    assert "do not treat missing params as evidence against them" in prompt
 
 
 def test_without_a_provider_both_tiers_are_recorded_as_suggestions():
@@ -499,7 +531,6 @@ def test_shortlisted_catalog_candidates_are_enriched_before_adjudication():
             artifact.params = ["table", "sys_id"]
 
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
         ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=0.9),
     )
     resolve_agent_tools(
@@ -512,7 +543,7 @@ def test_shortlisted_catalog_candidates_are_enriched_before_adjudication():
 
     assert enriched, "the hook never fired"
     assert len(enriched) <= len(marketplace)
-    assert "sys_id" in provider.prompts[1]  # the schema reached the model
+    assert "sys_id" in provider.prompts[0]  # the schema reached the model
 
 
 def test_a_failing_enrich_hook_does_not_sink_the_match():
@@ -522,7 +553,6 @@ def test_a_failing_enrich_hook_does_not_sink_the_match():
         raise RuntimeError("catalog detail unavailable")
 
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
         ToolMatch(target_ref="servicenow_get_record", verdict="near", confidence=0.7),
     )
     tool = _source_tool()
@@ -542,10 +572,9 @@ def test_the_connection_a_catalog_tool_needs_is_named_in_the_review_note():
 
     def enrich(artifacts):
         for artifact in artifacts:
-            artifact.connections = ["servicenow_ibm_184bdbd3"]
+            artifact.connections = ["servicenow_ibm_a1b2c3d4"]
 
     provider = _ScriptedProvider(
-        ToolMatch(target_ref=None, verdict="none", confidence=0.0),
         ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=0.9),
     )
     tool = _source_tool()
@@ -555,7 +584,7 @@ def test_the_connection_a_catalog_tool_needs_is_named_in_the_review_note():
         marketplace=marketplace, enrich=enrich,
     )
 
-    assert "servicenow_ibm_184bdbd3" in tool.notes
+    assert "servicenow_ibm_a1b2c3d4" in tool.notes
 
 
 def test_resolve_imports_nothing_that_does_io():
@@ -634,3 +663,159 @@ def test_a_read_and_a_write_of_the_same_noun_are_distinguishable():
 
     assert ranked[0][1].ref == "get_a_record"
     assert ranked[0][0] > ranked[1][0]
+
+
+def test_a_better_catalog_tool_does_not_cost_the_agent_a_working_one():
+    """The best answer being uninstalled must not leave the agent with nothing.
+    It gets the installed stand-in and a note naming the better tool, because
+    dropping a working capability to hold out for a better one is not an
+    improvement anyone asked for.
+    """
+    provider = _ScriptedProvider(
+        ToolMatch(
+            target_ref="servicenow_get_record",
+            verdict="exact",
+            confidence=0.95,
+            installed_fallback="SNOWMCPALL:get_record",
+        )
+    )
+    tool = _source_tool()
+
+    resolve_agent_tools(
+        _agent_with(tool), build_catalog(RAW_CATALOG), provider, marketplace=_marketplace()
+    )
+
+    # Usable today...
+    assert tool.ref == "SNOWMCPALL:get_record"
+    assert tool.bridge == BridgeStrategy.MCP_CATALOG
+    # ...and the better one is named, with what to do about it.
+    assert "servicenow_get_record" in tool.notes
+    assert "Install it" in tool.notes
+    assert tool.review_required is True
+
+
+def test_a_fallback_that_was_not_in_the_shortlist_is_refused():
+    """Same rule as `target_ref`: a ref the model invented never reaches a spec."""
+    provider = _ScriptedProvider(
+        ToolMatch(
+            target_ref="servicenow_get_record",
+            verdict="exact",
+            confidence=0.95,
+            installed_fallback="SNOWMCPALL:invented_tool",
+        )
+    )
+    tool = _source_tool()
+
+    resolve_agent_tools(
+        _agent_with(tool), build_catalog(RAW_CATALOG), provider, marketplace=_marketplace()
+    )
+
+    assert tool.ref == "servicenow_get_record"
+    assert tool.bridge == BridgeStrategy.CATALOG_INSTALL
+
+
+def test_no_installed_candidate_can_do_the_job_leaves_the_catalog_answer():
+    """A wrong stand-in is worse than none."""
+    provider = _ScriptedProvider(
+        ToolMatch(target_ref="servicenow_get_record", verdict="exact", confidence=0.95)
+    )
+    tool = _source_tool()
+
+    resolve_agent_tools(
+        _agent_with(tool), build_catalog(RAW_CATALOG), provider, marketplace=_marketplace()
+    )
+
+    assert tool.ref == "servicenow_get_record"
+    assert tool.bridge == BridgeStrategy.CATALOG_INSTALL
+    assert "Not installed on this instance" in tool.notes
+
+
+# ----------------------------------------------------------------------
+# An installed catalog tool is not a lesser stand-in for itself
+# ----------------------------------------------------------------------
+
+
+def test_an_instance_suffixed_name_is_recognised_as_the_catalog_tool():
+    """Orchestrate renames a catalog tool when it lands: `get_records` arrives
+    as `get_records_568d4`. The suffix is bookkeeping, not capability."""
+    from wheatear.pipeline.resolve import installed_copy_of
+
+    assert installed_copy_of("get_records_568d4", "get_records")
+    assert installed_copy_of("create_a_ticket_59106", "create_a_ticket")
+    assert installed_copy_of("get_records", "get_records")
+
+
+def test_a_differently_named_tool_is_not_mistaken_for_the_catalog_one():
+    """Answering a lookup with a tool that does a different job is the one
+    outcome worse than answering with none."""
+    from wheatear.pipeline.resolve import installed_copy_of
+
+    assert not installed_copy_of("get_record_abc12", "get_records")
+    assert not installed_copy_of("SNOWMCPALL:get_record", "get_records")
+    assert not installed_copy_of("list_records_568d4", "get_records")
+
+
+def test_the_installed_copy_wins_over_being_told_to_install_it_again(monkeypatch):
+    """The regression this exists for.
+
+    Somebody installs `Get Records in ServiceNow` from the catalog. It lands as
+    `get_records_568d4`. Without recognising that, every later migration reads
+    it as a weaker installed tool, resolves to the catalog entry, and tells
+    them to install the tool they already installed.
+    """
+    from wheatear.ir.schema import BridgeStrategy, ToolRef
+    from wheatear.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
+
+    installed = [CatalogTool(ref="get_records_568d4", description="Get records", origin="installed")]
+    catalog = [
+        CatalogTool(
+            ref="get_records",
+            display_name="Get Records in ServiceNow",
+            description="Get records from a ServiceNow table",
+            origin="catalog",
+        )
+    ]
+
+    class Provider:
+        def generate_structured(self, prompt, schema):
+            return ToolMatch(
+                target_ref="get_records",
+                verdict="exact",
+                installed_fallback="get_records_568d4",
+                confidence=1.0,
+            )
+
+    tool = ToolRef(ref="ServiceNow-GetRecord", description="Get a record", review_required=True)
+    _resolve_one(tool, installed, catalog, Provider())
+
+    assert tool.ref == "get_records_568d4"
+    assert tool.bridge is BridgeStrategy.MCP_CATALOG  # importable today
+    assert tool.catalog_install_ref is None  # nothing left to install
+    assert tool.review_required is False
+
+
+def test_a_genuinely_absent_catalog_tool_still_asks_to_be_installed():
+    """The recognition must not swallow the real case it was added beside."""
+    from wheatear.ir.schema import BridgeStrategy, ToolRef
+    from wheatear.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
+
+    installed = [CatalogTool(ref="send_email", description="Send an email", origin="installed")]
+    catalog = [
+        CatalogTool(
+            ref="get_records",
+            display_name="Get Records in ServiceNow",
+            description="Get records from a ServiceNow table",
+            origin="catalog",
+        )
+    ]
+
+    class Provider:
+        def generate_structured(self, prompt, schema):
+            return ToolMatch(target_ref="get_records", verdict="exact", confidence=1.0)
+
+    tool = ToolRef(ref="ServiceNow-GetRecord", description="Get a record", review_required=True)
+    _resolve_one(tool, installed, catalog, Provider())
+
+    assert tool.bridge is BridgeStrategy.CATALOG_INSTALL
+    assert tool.catalog_install_ref == "get_records"
+    assert tool.catalog_title == "Get Records in ServiceNow"

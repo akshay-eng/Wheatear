@@ -115,7 +115,12 @@ class ToolRef(BaseModel):
     target platform. Populated by the deterministic Map stage.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this tool is known by: the source system's tool name, schema name, "
+            "action name or operation id. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
     confidence: float = 1.0
     review_required: bool = False
@@ -141,6 +146,31 @@ class ToolRef(BaseModel):
     # Individual tool/operation names the toolkit/server exposes.
     member_tools: list[str] = Field(default_factory=list)
 
+    # The target-catalog tool this one *should* be using, when that tool is not
+    # installed on the instance yet. Structured rather than only described in
+    # `notes`, because somebody has to be shown the install step and told what
+    # to search the catalog for -- and recovering that from a sentence written
+    # for a human to read is not a plan. Set whether the tool was dropped for
+    # want of the install or is running on a lesser installed stand-in.
+    catalog_title: str | None = Field(
+        default=None,
+        description="What the catalog calls this tool, e.g. 'Get Records in ServiceNow'.",
+    )
+    catalog_install_ref: str | None = Field(
+        default=None,
+        description="The name the catalog tool answers to once installed, e.g. 'get_records'.",
+    )
+    catalog_artifact_id: str | None = Field(
+        default=None,
+        description=(
+            "The catalog's own id for that tool. What an automated install is addressed to; "
+            "the name is for people, this is for the API."
+        ),
+    )
+    # App connections the catalog entry declares. What a person has to
+    # configure after installing it, before the tool will authenticate.
+    catalog_connections: list[str] = Field(default_factory=list)
+
 
 class IngestPlan(str, Enum):
     """What has to happen for a source's content to exist on Orchestrate.
@@ -162,8 +192,25 @@ class KnowledgeRef(BaseModel):
     work, e.g. a SharePoint search connector with no Orchestrate equivalent.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this knowledge source is known by: the source system's knowledge "
+            "base name, file name or schema name. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
+    # The source's own prose about what this knowledge source contains, kept
+    # separate from `notes`: notes are Wheatear's commentary on the migration,
+    # and a target platform that shows the description to end users must not be
+    # handed "no confident mapping; review before import". watsonx Orchestrate
+    # rejects a knowledge base created without one.
+    description: str | None = Field(
+        default=None,
+        description=(
+            "What this knowledge source contains, in the source platform's own words. "
+            "Shown to users on the target; not migration commentary."
+        ),
+    )
     review_required: bool = False
     notes: str | None = None
     ingest_plan: IngestPlan | None = None
@@ -179,7 +226,12 @@ class ConnectionRef(BaseModel):
     populate real credentials on the target platform.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this connection is known by: the source system's connection "
+            "reference name, logical name or schema name. Identity, not prose."
+        )
+    )
     auth_type: str
     source_ref: str | None = None
     review_required: bool = True
@@ -193,7 +245,12 @@ class AgentRef(BaseModel):
     represented without infinite nesting.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name of the agent being handed work to: the target agent's name or "
+            "schema name on the source system. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
     review_required: bool = False
     notes: str | None = None
