@@ -11,28 +11,55 @@ The API base is that URL + /v1/orchestrate.
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import TYPE_CHECKING
 
 import requests
 
-if TYPE_CHECKING:
-    pass
+from wheatear.errors import RemoteAPIError
 
 IAM_URL = "https://iam.cloud.ibm.com/identity/token"
 DEFAULT_WORKSPACE = "00000000-0000-0000-0000-000000000001"
 
 
+def _describe(resp: requests.Response) -> str:
+    """A one-line reason from an error response.
+
+    IBM returns the useful part in `errorMessage` (IAM) or `detail`/`message`
+    (Orchestrate); falling back to the raw body keeps us honest when it returns
+    something else entirely. Truncated because an HTML error page is not a
+    message.
+    """
+    try:
+        payload = resp.json()
+    except ValueError:
+        return " ".join(resp.text.split())[:200]
+    if isinstance(payload, dict):
+        for key in ("errorMessage", "detail", "message", "error", "error_description"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:200]
+    return " ".join(resp.text.split())[:200]
+
+
 def get_iam_token(api_key: str) -> str:
     """Exchange an IBM Cloud API key for a short-lived IAM Bearer token."""
-    resp = requests.post(
-        IAM_URL,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        data=f"grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey={api_key}",
-        timeout=(10, 60),
-    )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
+    try:
+        resp = requests.post(
+            IAM_URL,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=f"grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey={api_key}",
+            timeout=(10, 60),
+        )
+    except requests.RequestException as exc:
+        raise RemoteAPIError(f"Could not reach IBM Cloud IAM: {exc}") from exc
+
+    if resp.status_code >= 400:
+        raise RemoteAPIError(
+            f"IBM Cloud rejected the API key ({resp.status_code}): {_describe(resp)}"
+        )
+    try:
+        return resp.json()["access_token"]
+    except (ValueError, KeyError) as exc:
+        raise RemoteAPIError("IBM Cloud IAM returned no access token.") from exc
 
 
 class OrchestrateRestClient:
@@ -52,9 +79,23 @@ class OrchestrateRestClient:
         params: dict = {"workspace_id": self.workspace_id, "include": "global"}
         if extra:
             params.update(extra)
-        resp = self._session.get(f"{self.base}{path}", params=params, timeout=(10, 60))
-        resp.raise_for_status()
-        return resp.json()
+        url = f"{self.base}{path}"
+        try:
+            resp = self._session.get(url, params=params, timeout=(10, 60))
+        except requests.RequestException as exc:
+            raise RemoteAPIError(f"Could not reach the Orchestrate instance at {url}: {exc}") from exc
+
+        if resp.status_code in (401, 403):
+            raise RemoteAPIError(
+                f"Orchestrate refused {path} ({resp.status_code}): {_describe(resp)}. "
+                "The token is valid but this instance or workspace may not be yours to read."
+            )
+        if resp.status_code >= 400:
+            raise RemoteAPIError(f"Orchestrate returned {resp.status_code} for {path}: {_describe(resp)}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise RemoteAPIError(f"Orchestrate returned a non-JSON body for {path}.") from exc
 
     def _post(self, path: str, body: dict) -> dict:
         resp = self._session.post(
@@ -120,7 +161,9 @@ class OrchestrateRestClient:
     def get_knowledge_base(self, kb_id: str) -> dict:
         try:
             return self._get(f"/knowledge-bases/{kb_id}")
-        except requests.HTTPError as exc:
+        except RemoteAPIError as exc:
+            # A knowledge base the agent references but we can't read shouldn't
+            # sink the whole export -- record it and let the manifest surface it.
             return {"id": kb_id, "error": str(exc)}
 
     # ------------------------------------------------------------------

@@ -17,7 +17,16 @@ from typing import Any
 
 from wheatear.connectors.base import ImportResult, RawToolRef
 from wheatear.errors import MapError
-from wheatear.ir.schema import Agent, BridgeStrategy, ConnectionRef, IngestPlan, KnowledgeRef, ToolKind, ToolRef
+from wheatear.ir.schema import (
+    Agent,
+    BridgeStrategy,
+    ConnectionRef,
+    IngestPlan,
+    KnowledgeRef,
+    ToolKind,
+    ToolParameter,
+    ToolRef,
+)
 
 # Known source-connector -> target-tool mappings. A hand-curated override table
 # checked ahead of the catalog resolver, so a validated corridor can pin a
@@ -32,6 +41,71 @@ KNOWN_TOOL_MAPPINGS: dict[str, str] = {}
 # callable so this module stays decoupled from any one target's catalog and so
 # the default (None) preserves the pre-catalog behavior exactly.
 ConnectorResolver = Callable[[str, str | None], Any]
+
+# A custom connector's Power Platform id carries the publisher prefix with the
+# underscore percent-encoded, e.g. ".../apis/shared_cr3ea-5fservice-20now-...".
+# Microsoft's prebuilt connectors have no publisher prefix
+# (".../apis/shared_service-now"). The distinction matters because a custom
+# connector's OpenAPI definition is downloadable from the source tenant, while
+# a prebuilt one has to come from the connector catalog.
+_CUSTOM_CONNECTOR_MARKER = "-5f"
+
+
+def _params(raw_params) -> list[ToolParameter]:
+    return [
+        ToolParameter(name=p.name, description=p.description, type=p.type) for p in raw_params
+    ]
+
+
+def _connector_kind(connector_id: str | None) -> ToolKind:
+    if not connector_id:
+        return ToolKind.UNKNOWN
+    tail = connector_id.rsplit("/", 1)[-1]
+    return ToolKind.CUSTOM_CONNECTOR if _CUSTOM_CONNECTOR_MARKER in tail else ToolKind.CONNECTOR
+
+
+def _connector_tool(raw: RawToolRef) -> ToolRef:
+    """A Power Platform connector operation bound to the source agent.
+
+    Both prebuilt and custom connectors are OpenAPI underneath, so the bridge
+    is a spec conversion rather than a hand-rebuild -- but the spec still has
+    to be fetched and the tool created on the target, so this stays
+    review_required until that actually happens. The full signature travels
+    with it so whoever (or whatever) resolves it next doesn't need the
+    original export.
+    """
+    kind = _connector_kind(raw.connector_id)
+    connector_name = (raw.connector_id or "").rsplit("/", 1)[-1] or "unknown connector"
+    operation = raw.operation_id or raw.name
+
+    if kind == ToolKind.CUSTOM_CONNECTOR:
+        detail = (
+            f"Custom connector '{connector_name}' operation '{operation}'. Its OpenAPI definition "
+            "can be exported from the source tenant (pac connector download) and imported as an "
+            "Orchestrate OpenAPI tool."
+        )
+    else:
+        detail = (
+            f"Prebuilt Power Platform connector '{connector_name}' operation '{operation}'. Needs "
+            "an equivalent Orchestrate tool -- either an existing toolkit that covers the same "
+            "operation, or an OpenAPI/MCP tool built against the same backend."
+        )
+
+    return ToolRef(
+        ref=raw.name,
+        source_ref=raw.source_ref or raw.name,
+        kind=kind,
+        bridge=BridgeStrategy.OPENAPI,
+        confidence=0.0,
+        review_required=True,
+        notes=detail,
+        description=raw.description,
+        operation_id=raw.operation_id,
+        connector_id=raw.connector_id,
+        inputs=_params(raw.inputs),
+        outputs=_params(raw.outputs),
+    )
+
 
 # At/above this catalog confidence AND a single-tool match, the pick is trusted
 # (not flagged for review). A multi-tool app match always needs human tool
@@ -137,9 +211,15 @@ def _map_to_orchestrate(
         if raw.kind == "mcp":
             agent.tools.append(_mcp_tool(raw))
             continue
+        # The curated resolver first: a validated corridor can pin a specific
+        # target the fuzzy matcher would get wrong. When it has no answer, a
+        # Power Platform connector still carries its full signature forward so
+        # the Resolve stage has something to match on.
         resolved = _resolve_connector(raw.name, None, connector_resolver)
         if resolved is not None:
             agent.tools.append(resolved)
+        elif raw.kind == "connector":
+            agent.tools.append(_connector_tool(raw))
         else:
             agent.tools.append(
                 ToolRef(
@@ -171,10 +251,14 @@ def _map_to_orchestrate(
             )
 
     for raw_knowledge in import_result.raw_knowledge_refs:
-        if raw_knowledge.is_file_upload:
-            # Files attached directly to the source agent. The export never
-            # carries the bytes, so the human must re-supply them; the 30MB/file
-            # cap applies on the Orchestrate side.
+        if raw_knowledge.file_path is not None or raw_knowledge.is_file_upload:
+            # Two shapes reach here. A Copilot componenttype-14 component ships
+            # the document itself, so `file_path` points at real bytes and the
+            # upload is something Wheatear can stage. An n8n
+            # readWriteFile->extractFromFile chain carries only a path, so the
+            # human re-supplies the files. Both are flagged for review either
+            # way: Orchestrate enforces a size cap and somebody picks which
+            # knowledge base receives them.
             detail = f" (source path: {raw_knowledge.detail})" if raw_knowledge.detail else ""
             agent.knowledge.append(
                 KnowledgeRef(
@@ -182,10 +266,14 @@ def _map_to_orchestrate(
                     source_ref=raw_knowledge.name,
                     review_required=True,
                     ingest_plan=IngestPlan.UPLOAD,
+                    file_path=str(raw_knowledge.file_path) if raw_knowledge.file_path else None,
                     notes=(
-                        f"Direct file upload{detail}: re-supply the actual files to Orchestrate "
-                        "(the export contains only a path, not the file bytes; enforce the "
-                        "30MB/file cap)."
+                        f"File '{raw_knowledge.file_path.name}' shipped with the source export; "
+                        "upload it into an Orchestrate knowledge base (mind the 30MB cap)."
+                        if raw_knowledge.file_path
+                        else f"Direct file upload{detail}: re-supply the actual files to "
+                        "Orchestrate (the export contains only a path, not the file bytes; "
+                        "enforce the 30MB/file cap)."
                     ),
                 )
             )

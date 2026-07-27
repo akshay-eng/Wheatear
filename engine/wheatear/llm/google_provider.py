@@ -15,6 +15,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from wheatear.llm.usage import Usage
+
 T = TypeVar("T", bound=BaseModel)
 
 DEFAULT_MODEL = "gemini-2.5-pro"
@@ -31,6 +33,10 @@ class GoogleProvider:
 
         self._client = genai.Client(api_key=api_key)
         self._model = model
+        # Published for `llm.usage.ObservedProvider`, which reports what each
+        # call cost. Reported by the API rather than estimated: a guessed token
+        # count looks authoritative and is wrong by a tokenizer-shaped factor.
+        self.last_usage = Usage()
 
     def generate_structured(self, prompt: str, schema: type[T]) -> T:
         from google.genai import types
@@ -43,6 +49,13 @@ class GoogleProvider:
                 response_schema=schema,
             ),
         )
+
+        meta = getattr(response, "usage_metadata", None)
+        if meta is not None:
+            self.last_usage = Usage(
+                input_tokens=int(getattr(meta, "prompt_token_count", 0) or 0),
+                output_tokens=int(getattr(meta, "candidates_token_count", 0) or 0),
+            )
 
         if response.parsed is None:
             raise RuntimeError(f"Gemini response did not include parsed {schema.__name__} output")

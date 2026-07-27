@@ -1,17 +1,41 @@
 .DS_Store
 .claude/
 .impeccable/
-DESIGN.md
 
-# Real customer exports used for calibration -- never commit these.
-# (agent exports + migration outputs carry internal endpoints/instructions)
+# ---------------------------------------------------------------------------
+# Agent / assistant working files and internal notes.
+# Session handoffs, design briefs and instructions written for a coding
+# assistant. They describe live tenants in detail and are not product docs.
+# ---------------------------------------------------------------------------
+claude.md
+CLAUDE.md
+AGENTS.md
+DESIGN.md
+HANDOFF.md
+HANDOFF-FOUNDRY.md
+orch.md
+.cursor/
+.aider*
+.github/copilot-instructions.md
+
+# ---------------------------------------------------------------------------
+# Customer data. This repository is public.
+#
+# Every path below has held real content at some point: agent instructions,
+# ServiceNow endpoints, knowledge base names, tenant ids, probed schemas.
+# Migration output is generated on demand and never needs committing.
+# ---------------------------------------------------------------------------
 copilot-export/
 /copilot-studio-migration/
-engine/Incident_Managementagent_*-export.*
 engine/copilot-studio-migration/
+engine/Incident_Managementagent_*-export.*
 engine/exports/
 engine/orchestrate-exports/
-orch.md
+orchestrate-exports/
+engine/orchestrate-migration/
+orchestrate-migration/
+*-migration/
+foundry-output/
 test-export.zip
 
 # n8n exploration artifacts -- workflow exports, KB source files, generated
@@ -21,6 +45,32 @@ n8n-export/
 n8n-export.zip
 n8n-feature-matrix/
 
+# ---------------------------------------------------------------------------
+# Credentials and captured sessions.
+#
+# A HAR holds live session cookies and anything typed while recording. A
+# console cookie is a live credential: whoever holds it is the signed-in user.
+# None of this belongs in version control even briefly -- a deleted secret
+# stays in the history.
+# ---------------------------------------------------------------------------
+*.har
+cookie*.txt
+cookies.txt
+*.pem
+*.key
+!**/*.key.example
+.env
+.env.*
+!.env.example
+secrets.*
+*credentials*.json
+*_token.txt
+
+# Human-readable dumps of the catalog. `dump_catalog.py` writes these beside
+# catalog-snapshot.json, which is the one the code actually reads; the text
+# versions are half a megabyte of the same data that nothing loads.
+engine/catalog-snapshot*.txt
+
 # Reference assets + migration outputs (real exports, PDFs, deployed YAML).
 migration_assets/
 n8n-migration/
@@ -29,16 +79,24 @@ n8n-migration/
 # migration critical path; the Orchestrate catalog-snapshot.json IS committed.
 engine/wheatear/connectors/orchestrate/data/n8n-node-catalog-snapshot.json
 
-# Python
+# ---------------------------------------------------------------------------
+# Build, cache and editor noise
+# ---------------------------------------------------------------------------
 engine/.venv/
+.venv/
+venv/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 *.pyc
+*.pyo
+build/
+dist/
 
-# IDE / OS local files
 .vscode/
 .idea/
 *.swp
-.env
-.env.*
+*.swo
+*~

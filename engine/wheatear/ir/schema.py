@@ -77,6 +77,11 @@ class BridgeStrategy(str, Enum):
     NATIVE_MCP = "native_mcp"  # re-point an existing MCP endpoint (cleanest)
     OPENAPI = "openapi"  # convert an OpenAPI spec into an Orchestrate tool
     MCP_CATALOG = "mcp_catalog"  # resolved via the curated connector catalog
+    # Matched a tool in the global catalog that is not installed on the target
+    # instance yet. Distinct from MCP_CATALOG because it is not importable as
+    # it stands: the tool must be added to the instance first, so this always
+    # carries an install step into the review manifest.
+    CATALOG_INSTALL = "catalog_install"
     MANUAL = "manual"  # no confident mapping; human must implement
 
 
@@ -93,18 +98,46 @@ class Guideline(BaseModel):
     tool_ref: str | None = None
 
 
+class ToolParameter(BaseModel):
+    """One input or output of a tool, with the description the source platform
+    gave its own model. Carried through the IR because it's what a capability
+    match is actually judged on -- and what a generated bridge has to
+    reproduce.
+    """
+
+    name: str
+    description: str | None = None
+    type: str | None = None
+
+
 class ToolRef(BaseModel):
     """A connector, custom action, or flow reference mapped to a tool on the
     target platform. Populated by the deterministic Map stage.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this tool is known by: the source system's tool name, schema name, "
+            "action name or operation id. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
     confidence: float = 1.0
     review_required: bool = False
     notes: str | None = None
     kind: ToolKind = ToolKind.UNKNOWN
     bridge: BridgeStrategy | None = None
+
+    # What the tool does, as the source platform described it, plus the
+    # operation and connector it was bound to. Preserved so a reviewer (or a
+    # later resolver) has the full signature and doesn't have to go back to
+    # the source export to find out what "GetRecord" meant.
+    description: str | None = None
+    operation_id: str | None = None
+    # Power Platform connector id, e.g. ".../apis/shared_service-now".
+    connector_id: str | None = None
+    inputs: list[ToolParameter] = Field(default_factory=list)
+    outputs: list[ToolParameter] = Field(default_factory=list)
     # For MCP-backed tools: the server endpoint + transport. MCP is the one
     # tool type both platforms consume natively, so carrying the URL makes it a
     # clean migration (re-point the endpoint) rather than a manual rebuild.
@@ -112,6 +145,31 @@ class ToolRef(BaseModel):
     transport: str | None = None
     # Individual tool/operation names the toolkit/server exposes.
     member_tools: list[str] = Field(default_factory=list)
+
+    # The target-catalog tool this one *should* be using, when that tool is not
+    # installed on the instance yet. Structured rather than only described in
+    # `notes`, because somebody has to be shown the install step and told what
+    # to search the catalog for -- and recovering that from a sentence written
+    # for a human to read is not a plan. Set whether the tool was dropped for
+    # want of the install or is running on a lesser installed stand-in.
+    catalog_title: str | None = Field(
+        default=None,
+        description="What the catalog calls this tool, e.g. 'Get Records in ServiceNow'.",
+    )
+    catalog_install_ref: str | None = Field(
+        default=None,
+        description="The name the catalog tool answers to once installed, e.g. 'get_records'.",
+    )
+    catalog_artifact_id: str | None = Field(
+        default=None,
+        description=(
+            "The catalog's own id for that tool. What an automated install is addressed to; "
+            "the name is for people, this is for the API."
+        ),
+    )
+    # App connections the catalog entry declares. What a person has to
+    # configure after installing it, before the tool will authenticate.
+    catalog_connections: list[str] = Field(default_factory=list)
 
 
 class IngestPlan(str, Enum):
@@ -134,11 +192,32 @@ class KnowledgeRef(BaseModel):
     work, e.g. a SharePoint search connector with no Orchestrate equivalent.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this knowledge source is known by: the source system's knowledge "
+            "base name, file name or schema name. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
+    # The source's own prose about what this knowledge source contains, kept
+    # separate from `notes`: notes are Wheatear's commentary on the migration,
+    # and a target platform that shows the description to end users must not be
+    # handed "no confident mapping; review before import". watsonx Orchestrate
+    # rejects a knowledge base created without one.
+    description: str | None = Field(
+        default=None,
+        description=(
+            "What this knowledge source contains, in the source platform's own words. "
+            "Shown to users on the target; not migration commentary."
+        ),
+    )
     review_required: bool = False
     notes: str | None = None
     ingest_plan: IngestPlan | None = None
+    # Absolute path to the extracted document, for file-backed sources that
+    # shipped inside the source export. Present means the content is in hand
+    # and can actually be uploaded; absent means only the reference survived.
+    file_path: str | None = None
 
 
 class ConnectionRef(BaseModel):
@@ -147,7 +226,12 @@ class ConnectionRef(BaseModel):
     populate real credentials on the target platform.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name this connection is known by: the source system's connection "
+            "reference name, logical name or schema name. Identity, not prose."
+        )
+    )
     auth_type: str
     source_ref: str | None = None
     review_required: bool = True
@@ -161,7 +245,12 @@ class AgentRef(BaseModel):
     represented without infinite nesting.
     """
 
-    ref: str
+    ref: str = Field(
+        description=(
+            "The name of the agent being handed work to: the target agent's name or "
+            "schema name on the source system. Identity, not prose."
+        )
+    )
     source_ref: str | None = None
     review_required: bool = False
     notes: str | None = None

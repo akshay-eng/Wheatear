@@ -69,14 +69,44 @@ class SolutionInfo:
 # Installation check
 # ---------------------------------------------------------------------------
 
+def find_pac() -> str | None:
+    """The PAC CLI, on PATH or in the dotnet global tools directory.
+
+    The second half is what makes this work at all. `dotnet tool install
+    --global` puts `pac` in `~/.dotnet/tools`, and that directory is only on
+    PATH if the dotnet installer edited the user's shell profile -- which it
+    does not always do, and which never affects an already-running shell.
+
+    Looking only at PATH means an installed `pac` reads as missing, so the
+    wizard offers to install it, `dotnet tool install` reports it is already
+    installed, the process patches its own PATH, and the *next* launch asks
+    again. Forever. Observed on this machine with pac 1.52.1 present and
+    working the whole time.
+    """
+    found = shutil.which("pac")
+    if found:
+        return found
+    for name in ("pac", "pac.exe"):
+        candidate = Path(dotnet_tools_path()) / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _pac() -> str:
+    """The PAC executable to invoke, or the bare name so the error names it."""
+    return find_pac() or "pac"
+
+
 def check() -> tuple[bool, str]:
     """Return (found, version_string). version_string is empty if not found."""
-    if shutil.which("pac") is None:
+    executable = find_pac()
+    if executable is None:
         return False, ""
     # pac doesn't have a clean --version flag but any call prints the version
     # in the error header (confirmed against 1.52.1).
     result = subprocess.run(
-        ["pac", "help"],
+        [executable, "help"],
         capture_output=True,
         text=True,
         timeout=15,
@@ -140,21 +170,332 @@ def install() -> None:
 def auth_status() -> tuple[bool, str]:
     """Return (authenticated, account_name).
 
-    Runs 'pac auth list' and checks whether any account email appears in the
-    output. If not authenticated, returns (False, "").
+    The account reported is the *active* profile where one is marked, not
+    simply the first email in the output. Somebody with two tenants signed in
+    has two emails listed and only one of them is the account every later `pac`
+    call will actually use; naming the wrong one tells them the migration is
+    reading an environment it is not.
+    """
+    profiles = list_auth_profiles()
+    active = next((p for p in profiles if p.active), None)
+    if active is not None:
+        return True, active.user or active.name or "unknown"
+    if profiles:
+        return True, profiles[0].user or profiles[0].name or "unknown"
+    return False, ""
+
+
+@dataclass
+class AuthProfile:
+    """One signed-in Power Platform account, as `pac auth list` reports it."""
+
+    index: int
+    active: bool
+    user: str
+    name: str = ""
+    kind: str = ""
+    environment: str = ""
+
+    def label(self) -> str:
+        parts = [self.user or self.name or f"profile {self.index}"]
+        if self.environment:
+            parts.append(self.environment)
+        return "  ·  ".join(parts)
+
+
+# `pac auth list` prints a table whose columns have moved between releases
+# (Index/Active/Kind/Name/User/Cloud/Type on 1.5x). Two anchors are stable
+# across all of them and are the only things parsed: the `[N]` index and the
+# account's email. Everything else is best-effort decoration, on the same
+# principle as `auth_status` before it -- a layout change should cost a column,
+# not the ability to switch accounts.
+_AUTH_INDEX_RE = re.compile(r"^\s*\[?(\d+)\]?\s*(\*?)")
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
+_URL_RE = re.compile(r"https?://\S+")
+
+
+def parse_auth_list(output: str) -> list[AuthProfile]:
+    """Parse `pac auth list` output into profiles.
+
+    Split out from the subprocess call so it can be tested against real
+    captured output rather than only against a live, signed-in machine.
+    """
+    profiles: list[AuthProfile] = []
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        index_match = _AUTH_INDEX_RE.match(line)
+        if not index_match:
+            continue
+        email = _EMAIL_RE.search(line)
+        url = _URL_RE.search(line)
+        # An asterisk marks the active profile. PAC has printed it both
+        # immediately after the index and in its own column, so the whole line
+        # is checked rather than one position.
+        active = bool(index_match.group(2)) or " * " in line or line.rstrip().endswith("*")
+        profiles.append(
+            AuthProfile(
+                index=int(index_match.group(1)),
+                active=active,
+                user=email.group(0) if email else "",
+                environment=url.group(0) if url else "",
+            )
+        )
+    # Exactly one profile and no marker at all still means that profile is the
+    # one in use -- PAC omits the asterisk when there is nothing to choose
+    # between.
+    if len(profiles) == 1 and not profiles[0].active:
+        profiles[0].active = True
+    return profiles
+
+
+def list_auth_profiles() -> list[AuthProfile]:
+    """Every Power Platform account currently signed in on this machine."""
+    try:
+        result = subprocess.run(
+            [_pac(), "auth", "list"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return parse_auth_list(result.stdout + result.stderr)
+
+
+def select_auth_profile(index: int) -> None:
+    """Make an already-signed-in profile the active one.
+
+    Switching rather than re-authenticating: a user with two tenants signed in
+    should not have to run a device-code flow to move between them.
     """
     result = subprocess.run(
-        ["pac", "auth", "list"],
+        [_pac(), "auth", "select", "--index", str(index)],
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=30,
     )
+    if result.returncode != 0:
+        combined = (result.stderr or result.stdout).strip()
+        raise PacError(f"pac auth select --index {index} failed:\n{combined[:400]}")
+
+
+def clear_auth() -> None:
+    """Sign out of every Power Platform account on this machine.
+
+    `pac auth clear` deletes the stored profiles; it does not revoke anything
+    in Entra. The next `pac` call has to authenticate from scratch, which is
+    the point -- it is how somebody moves to an account that is not currently
+    signed in.
+    """
+    result = subprocess.run(
+        [_pac(), "auth", "clear"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        combined = (result.stderr or result.stdout).strip()
+        raise PacError(f"pac auth clear failed:\n{combined[:400]}")
+
+
+def delete_auth_profile(index: int) -> None:
+    """Sign out of one account, leaving the others alone."""
+    result = subprocess.run(
+        [_pac(), "auth", "delete", "--index", str(index)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        combined = (result.stderr or result.stdout).strip()
+        raise PacError(f"pac auth delete --index {index} failed:\n{combined[:400]}")
+
+
+# ---------------------------------------------------------------------------
+# Environments
+# ---------------------------------------------------------------------------
+#
+# One tenant holds many Dataverse environments -- Dev, Test, Prod, a personal
+# one per maker -- and an agent lives in exactly one of them. `pac solution
+# list` reports the *selected* environment's solutions and says nothing about
+# which that is, so a migration run against the wrong one finds no agents, or
+# worse, finds last quarter's.
+
+
+@dataclass
+class EnvironmentInfo:
+    """One Power Platform environment the signed-in account can reach."""
+
+    index: int
+    display_name: str
+    environment_id: str = ""
+    url: str = ""
+    env_type: str = ""
+    active: bool = False
+    # `pac env list`'s last column: `orgexample01`, `unq2a7f8790...`. Not used
+    # for selection -- the URL is better -- but it is what a Dataverse admin
+    # recognises, so it is kept rather than discarded.
+    unique_name: str = ""
+
+    @property
+    def selector(self) -> str:
+        """What to hand `pac env select`, which takes an ID, URL, unique name
+        or partial name (verified against 1.52.1).
+
+        The URL is the least ambiguous of them: display names repeat across
+        tenants, a partial name can match two environments, and an ID is
+        unreadable in an error message.
+        """
+        return self.url or self.environment_id or self.unique_name or self.display_name
+
+    def label(self) -> str:
+        parts = [self.display_name or self.environment_id or f"environment {self.index}"]
+        if self.env_type:
+            parts.append(self.env_type)
+        if self.url:
+            parts.append(self.url)
+        return "  ·  ".join(parts)
+
+
+_GUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+# Environment kinds PAC prints in its own column. Recognised so a type is not
+# mistaken for part of a display name, and so an unknown kind is simply left
+# out rather than corrupting the name.
+_ENV_TYPES = ("Default", "Sandbox", "Production", "Trial", "Developer", "Teams")
+
+
+# The leading columns of an environment row, both optional. `pac env list` on
+# 1.52.1 prints no index at all -- just an Active column holding `*` or
+# nothing -- while other commands and other releases bracket an index. Both
+# are accepted, and neither is required.
+_ENV_LEAD_RE = re.compile(r"^\s*(?:\[(\d+)\]\s*)?(\*?)\s*")
+
+
+def parse_env_list(output: str) -> list[EnvironmentInfo]:
+    """Parse `pac env list` into environments.
+
+    Anchored on the GUID and the URL, because those are the only two fields
+    every release prints and they cannot be confused with anything else on the
+    line. Everything before them is the display name; everything after is the
+    unique name.
+
+    Requiring an index column was the original bug: 1.52.1 prints
+
+        Active Display Name     Environment ID  Environment URL  Unique Name
+               copilotstudio    f53c0cc5-...    https://...      unq2a7f...
+        *      Contoso Main  258ac4e4-...    https://...      orgexample01
+
+    -- no index anywhere -- so every row failed to match, the list came back
+    empty, and the wizard reported that it could not read the environments of a
+    tenant that has three.
+
+    Rows with neither a GUID nor a URL are skipped, which is what discards the
+    `Connected as ...` preamble and the column header without having to
+    recognise either.
+    """
+    environments: list[EnvironmentInfo] = []
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        guid = _GUID_RE.search(line)
+        url = _URL_RE.search(line)
+        if guid is None and url is None:
+            continue
+
+        lead = _ENV_LEAD_RE.match(line)
+        start = lead.end() if lead else 0
+        cut = min(m.start() for m in (guid, url) if m is not None)
+        name = line[start:cut].strip()
+        tail = line[url.end() :].strip() if url is not None else ""
+
+        env_type = ""
+        for candidate in _ENV_TYPES:
+            if re.search(rf"\b{candidate}\b", tail):
+                env_type = candidate
+                break
+        # A release that prints the type before the ids would otherwise glue it
+        # onto the name. The leading space is required so a one-word name that
+        # happens to *be* a type word is not truncated to nothing.
+        for candidate in _ENV_TYPES:
+            if env_type:
+                break
+            if name.endswith(" " + candidate):
+                env_type = candidate
+                name = name[: -len(candidate)].strip()
+
+        environments.append(
+            EnvironmentInfo(
+                index=int(lead.group(1)) if lead and lead.group(1) else len(environments) + 1,
+                display_name=name,
+                environment_id=guid.group(0) if guid else "",
+                url=url.group(0).rstrip(",") if url else "",
+                unique_name=tail.split()[0] if tail and env_type != tail else (tail or ""),
+                env_type=env_type,
+                active=bool(lead and lead.group(2)),
+            )
+        )
+    return environments
+
+
+def list_environments() -> list[EnvironmentInfo]:
+    """Every environment the active account can reach, or [] if PAC can't say.
+
+    Empty rather than an exception: not being able to enumerate environments
+    costs the ability to *choose* one, and the migration can still run against
+    whichever PAC already has selected. Refusing to migrate because a listing
+    call failed would trade a working run for none.
+    """
+    try:
+        result = subprocess.run(
+            [_pac(), "env", "list"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if result.returncode != 0:
+        return []
+    return parse_env_list(result.stdout + result.stderr)
+
+
+def current_environment() -> str:
+    """The environment `pac` is pointed at now, as a URL or a name.
+
+    Read back rather than remembered. This is what confirms a switch actually
+    happened -- see `select_environment`.
+    """
+    try:
+        result = subprocess.run(
+            [_pac(), "env", "who"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
     combined = result.stdout + result.stderr
-    # Look for an email address in the output
-    m = re.search(r"[\w.+-]+@[\w.-]+\.\w+", combined)
-    if m:
-        return True, m.group(0)
-    return False, ""
+    url = _URL_RE.search(combined)
+    if url:
+        return url.group(0).rstrip(",")
+    for line in combined.splitlines():
+        if "environment" in line.lower() and ":" in line:
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def select_environment(selector: str) -> None:
+    """Point `pac` at one environment for every later call."""
+    result = subprocess.run(
+        [_pac(), "env", "select", "--environment", selector],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        combined = (result.stderr or result.stdout).strip()
+        raise PacError(f"pac env select --environment {selector} failed:\n{combined[:400]}")
 
 
 def do_device_auth(on_code: Callable[[str], None]) -> str:
@@ -165,7 +506,7 @@ def do_device_auth(on_code: Callable[[str], None]) -> str:
     Returns the authenticated account name, or "unknown" if it can't be parsed.
     """
     proc = subprocess.Popen(
-        ["pac", "auth", "create", "--deviceCode"],
+        [_pac(), "auth", "create", "--deviceCode"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -209,7 +550,7 @@ def list_copilots() -> list[CopilotInfo]:
     robustly, regardless of column widths or multi-word copilot names.
     """
     result = subprocess.run(
-        ["pac", "copilot", "list"],
+        [_pac(), "copilot", "list"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -240,7 +581,7 @@ def list_solutions(unmanaged_only: bool = True) -> list[SolutionInfo]:
     solutions from the list, which dramatically reduces the list size.
     """
     result = subprocess.run(
-        ["pac", "solution", "list"],
+        [_pac(), "solution", "list"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -283,7 +624,7 @@ def export_solution(unique_name: str, dest_zip: Path) -> None:
     """Run 'pac solution export --name <unique_name> --path <dest_zip> --managed false'."""
     result = subprocess.run(
         [
-            "pac", "solution", "export",
+            _pac(), "solution", "export",
             "--name", unique_name,
             "--path", str(dest_zip),
             "--managed", "false",
@@ -317,7 +658,7 @@ def unpack_solution(zip_path: Path, dest_dir: Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
         [
-            "pac", "solution", "unpack",
+            _pac(), "solution", "unpack",
             "--zipfile", str(zip_path),
             "--folder", str(dest_dir),
         ],
@@ -376,18 +717,26 @@ def create_bot_slice(sol_dir: Path, bot_schema: str, dest: Path) -> Path:
 
     Copies:
       solution.xml                 (shared metadata)
+      customizations.xml           (connection reference -> connector id map)
       bots/<bot_schema>/           (this bot only)
       botcomponents/<bot_schema>.* (only components belonging to this bot)
 
     Botcomponents belonging to a bot have schemanames that start with the bot's
     schemaname followed by a dot (e.g. bot "ai_HelperBee" owns components named
     "ai_HelperBee.gpt.default", "ai_HelperBee.topic.ConversationStart", etc.).
+
+    customizations.xml is solution-wide rather than per-bot, but it holds the
+    only mapping from a tool's connection reference to the Power Platform
+    connector behind it. Leaving it out cost every sliced import its connector
+    identity -- the difference between "connector shared_service-now" and an
+    unresolvable GUID -- so it comes along whole.
     """
     dest.mkdir(parents=True, exist_ok=True)
 
-    sol_xml = sol_dir / "solution.xml"
-    if sol_xml.exists():
-        shutil.copy2(sol_xml, dest / "solution.xml")
+    for shared in ("solution.xml", "customizations.xml"):
+        src = sol_dir / shared
+        if src.exists():
+            shutil.copy2(src, dest / shared)
 
     bot_src = sol_dir / "bots" / bot_schema
     if bot_src.is_dir():
