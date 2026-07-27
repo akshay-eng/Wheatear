@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from wheatear.connectors.copilot_studio import solution_importer as si
-from wheatear.connectors.orchestrate.catalog import connector_resolver
 from wheatear.pipeline.map import map_agent
 
 _CANDIDATES = [
@@ -42,18 +41,29 @@ def test_migration_order_is_leaf_first():
     assert order.index("ITSM Agent") < order.index("Supervisor-agent")
 
 
-def test_servicenow_connector_actions_extracted_and_catalog_matched():
+def test_servicenow_connector_actions_extracted_as_openapi_tools():
+    # The ITSM bot's ServiceNow actions come through as structured connector
+    # tools carrying the Power Platform connector id + operation, and Map turns
+    # each into a review-required OpenAPI-bridge tool (connectors are OpenAPI
+    # underneath, so the migration path is a spec conversion, not a rebuild).
     bundle = si.import_bundle(DEMO)
     itsm = next(r for r in bundle.results if r.agent.name == "ITSM Agent")
-    assert "ServiceNow" in itsm.raw_tool_refs
-    assert itsm.raw_connection_refs  # the shared ServiceNow connection
-    # catalog match resolves ServiceNow to a real Orchestrate catalog tool
-    map_agent(itsm, connector_resolver=connector_resolver())
-    tool = itsm.agent.tools[0]
-    assert tool.bridge.value == "mcp_catalog"
-    assert tool.review_required is True  # toolkit-level -> human confirms ops
+    connectors = [t for t in itsm.raw_tools if t.kind == "connector"]
+    assert connectors, "expected ServiceNow connector actions on the ITSM agent"
+    assert all("service-now" in (t.connector_id or "") for t in connectors)
+    assert {t.operation_id for t in connectors} >= {"GetRecord", "GetRecords"}
+
+    map_agent(itsm)
+    tools = itsm.agent.tools
+    assert tools and all(t.bridge.value == "openapi" for t in tools)
+    assert all(t.review_required is True for t in tools)
 
 
-def test_single_agent_contract_returns_root():
-    result = si.import_agent(DEMO)
+def test_import_agent_requires_bot_schema_for_multi_bot():
+    # The branch's contract: a multi-bot solution has no single "root" agent to
+    # return, so import_agent asks the caller to name the bot rather than guess.
+    with pytest.raises(ValueError, match="bot_schema|contains .* bots"):
+        si.import_agent(DEMO)
+    # Naming the bot returns exactly that one.
+    result = si.import_agent(DEMO, bot_schema="crd07_Supervisoragent")
     assert result.agent.name == "Supervisor-agent"
