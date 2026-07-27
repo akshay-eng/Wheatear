@@ -12,6 +12,7 @@ SUPPORTED_CORRIDORS: set[tuple[str, str]] = {
     ("copilot-studio", "orchestrate"),
     ("orchestrate", "orchestrate"),
     ("orchestrate", "copilot-studio"),
+    ("n8n", "orchestrate"),
 }
 
 # (display name, internal key, implemented)
@@ -22,7 +23,7 @@ SOURCE_PLATFORMS: list[tuple[str, str, bool]] = [
     ("AWS Bedrock AgentCore", "agentcore", False),
     ("ServiceNow AI Agents", "servicenow", False),
     ("Salesforce Agentforce", "agentforce", False),
-    ("n8n", "n8n", False),
+    ("n8n", "n8n", True),
     ("OpenAI Agent Builder", "openai-agents", False),
     ("Zapier Agents", "zapier", False),
     ("Dify", "dify", False),

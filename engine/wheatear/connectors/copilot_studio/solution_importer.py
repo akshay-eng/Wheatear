@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -592,3 +593,30 @@ def import_agent(solution_dir: Path, bot_schema: str | None = None) -> ImportRes
         raw_connection_refs=[],
         import_notes=import_notes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Bundle API
+#
+# `import_workflow` returns the workflow and the per-agent results as a tuple;
+# the n8n-era code and its tests expect one object with the same two things on
+# it. Both names are kept and there is still one implementation: a second
+# traversal of a solution is a second place for the two to disagree about what
+# a Copilot export contains.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CopilotImport:
+    """A multi-agent Copilot solution import: the assembled Workflow plus the
+    per-agent ImportResults (whose `.agent` objects are the same ones in
+    `workflow.agents`, so Map mutates them in place)."""
+
+    workflow: Workflow
+    results: list[ImportResult] = field(default_factory=list)
+
+
+def import_bundle(solution_dir: Path) -> CopilotImport:
+    """Every agent in a solution, with the delegation graph between them."""
+    workflow, results = import_workflow(solution_dir)
+    return CopilotImport(workflow=workflow, results=results)

@@ -1,0 +1,169 @@
+{
+  "name": "HR Agent",
+  "nodes": [
+    {
+      "id": "trigger-hr-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "query",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "readfiles-hr-1",
+      "name": "Read HR Files",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/Users/akshay/.n8n-files/hr-kb/*.pdf",
+        "options": {}
+      }
+    },
+    {
+      "id": "extractpdf-hr-1",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "data",
+        "options": {
+          "joinPages": true
+        }
+      }
+    },
+    {
+      "id": "combinekb-hr-1",
+      "name": "Combine KB Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const files = $input.all();\nconst kbText = files.map(item => item.json.text || '').join('\\n\\n---\\n\\n');\nconst query = $('Execute Workflow Trigger').first().json.query;\nreturn [{ json: { query, kb_text: kbText } }];"
+      }
+    },
+    {
+      "id": "agent-hr-1",
+      "name": "HR Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query }}",
+        "options": {
+          "systemMessage": "=You are the HR Agent for Raytech's internal support system. You answer questions about HR policy, recruitment process, onboarding, interview guidelines, and benefits.\n\nYou have access to a Knowledge Base (below) containing Raytech's HR Policy Handbook and company business overview. Always ground your answers in this content and reference the relevant policy section when possible.\n\nRules:\n- If the knowledge base doesn't contain the answer, say so explicitly \u2014 do not guess or fabricate policy.\n- If asked about a specific candidate's data, respond that this is handled by a different agent (the Candidate Agent) and do not attempt to answer it.\n- Keep responses concise and policy-accurate.\n\nKnowledge Base:\n{{ $json.kb_text }}"
+        }
+      }
+    },
+    {
+      "id": "model-hr-1",
+      "name": "Gemini Chat Model (HR)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        500
+      ],
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro"
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RV4nDj1nmSzCNt9T",
+          "name": "Google Gemini - Recruitment Demo"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read HR Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read HR Files": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Combine KB Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine KB Text": {
+      "main": [
+        [
+          {
+            "node": "HR Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model (HR)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "HR Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": true,
+  "id": "T343QtPkcAXNGlRw",
+  "meta": {}
+}

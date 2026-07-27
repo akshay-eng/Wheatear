@@ -195,7 +195,7 @@ def test_a_style_the_target_does_not_know_is_dropped_not_passed_through(tmp_path
     """
     result = export_agent(make_agent(agent_style="connected"), tmp_path)
     spec = yaml.safe_load(result.agent_path.read_text())
-    assert spec["style"] == "react_core"
+    assert spec["style"] == "react_intrinsic"
     manifest = yaml.safe_load(result.review_manifest_path.read_text())
     assert any(item["type"] == "style" for item in manifest["review_items"])
 
@@ -365,9 +365,13 @@ def test_a_migrated_agent_lands_on_the_recommended_style_not_a_deprecated_one():
     def styled(value):
         return Agent(name="a", source_platform="copilot-studio", agent_style=value)
 
-    assert agent_style(styled(None))[0] == "react_core"
-    assert agent_style(styled(""))[0] == "react_core"
+    # `react_intrinsic` is what the console labels "ReAct Core". The enum also
+    # has a `react_core`, which reads like the obvious answer and is used by
+    # nothing -- a live tenant stores only default, react and react_intrinsic,
+    # matching the three styles the console offers.
+    assert agent_style(styled(None))[0] == "react_intrinsic"
+    assert agent_style(styled(""))[0] == "react_intrinsic"
     # A style the source genuinely set and the target knows is still honoured.
     assert agent_style(styled("planner")) == ("planner", None)
     # And an unknown one is reported as discarded rather than silently swapped.
-    assert agent_style(styled("connected")) == ("react_core", "connected")
+    assert agent_style(styled("connected")) == ("react_intrinsic", "connected")

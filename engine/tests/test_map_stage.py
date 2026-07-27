@@ -175,3 +175,65 @@ def test_file_backed_knowledge_is_an_upload_not_a_reindex(tmp_path):
     reindexed = next(k for k in agent.knowledge if k.ref == "Policies")
     assert reindexed.ingest_plan == IngestPlan.REINDEX_VECTOR
     assert reindexed.file_path is None
+
+def _fake_match(install_ref, name, confidence, member_tools=()):
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class _M:
+        install_ref: str
+        name: str
+        confidence: float
+        member_tools: tuple = field(default_factory=tuple)
+
+    return _M(install_ref, name, confidence, tuple(member_tools))
+
+
+def test_map_resolves_connector_via_catalog_resolver():
+    import_result = import_agent(FIXTURE_DIR)
+
+    def resolver(app, desc):
+        if app == "SalesforceOrderLookup":
+            return _fake_match("salesforce_get_order", "Get order in Salesforce", 1.0)
+        return None
+
+    agent = map_agent(import_result, connector_resolver=resolver)
+    tool = next(t for t in agent.tools if t.source_ref == "SalesforceOrderLookup")
+    assert tool.ref == "salesforce_get_order"
+    assert tool.review_required is False  # single-tool, high confidence -> trusted
+
+
+def test_map_flags_multi_tool_catalog_match_for_selection():
+    import_result = import_agent(FIXTURE_DIR)
+
+    def resolver(app, desc):
+        return _fake_match("get_users_in_slack", "Get users in Slack", 0.9,
+                           member_tools=("Get users in Slack", "Post message in Slack"))
+
+    agent = map_agent(import_result, connector_resolver=resolver)
+    tool = next(t for t in agent.tools if t.source_ref == "SalesforceOrderLookup")
+    assert tool.review_required is True  # toolkit-level -> human picks operations
+    assert len(tool.member_tools) == 2
+
+
+def test_map_resolver_miss_falls_back_to_manual_flag():
+    import_result = import_agent(FIXTURE_DIR)
+    agent = map_agent(import_result, connector_resolver=lambda a, d: None)
+    tool = next(t for t in agent.tools if t.source_ref == "SalesforceOrderLookup")
+    assert tool.review_required is True
+    assert tool.confidence == 0.0
+
+
+def test_map_file_upload_knowledge_routes_to_upload_plan():
+    from wheatear.connectors.base import ImportResult, RawKnowledgeRef
+    from wheatear.ir.schema import Agent, IngestPlan
+
+    ir = ImportResult(
+        agent=Agent(name="a", source_platform="n8n"),
+        raw_knowledge_refs=[RawKnowledgeRef(name="HR KB", source_kind="file_upload",
+                                            detail="/path/*.pdf", is_file_upload=True)],
+    )
+    agent = map_agent(ir)
+    kb = agent.knowledge[0]
+    assert kb.ingest_plan == IngestPlan.UPLOAD
+    assert kb.review_required is True

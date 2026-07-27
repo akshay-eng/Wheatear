@@ -13,6 +13,7 @@ SERVICE = "wheatear"
 # Canonical keychain key names used across the wizard.
 KEY_SRC_ORCHESTRATE = "source_orchestrate_api_key"
 KEY_TGT_ORCHESTRATE = "target_orchestrate_api_key"
+KEY_N8N_API_KEY = "source_n8n_api_key"
 
 
 def llm_key_name(provider: str) -> str:

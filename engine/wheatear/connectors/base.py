@@ -31,6 +31,12 @@ class RawKnowledgeRef:
     # difference between a migration and a TODO -- it's what lets the exporter
     # stage a real upload instead of naming a file nobody can find.
     file_path: Path | None = None
+    # True when the source attached files directly to the agent (e.g. an n8n
+    # readWriteFile->extractFromFile chain, or a Copilot file upload) rather
+    # than pointing at an external searchable source. The export never carries
+    # the file bytes, so Map routes these to IngestPlan.UPLOAD and flags them
+    # for the human to re-supply the actual files.
+    is_file_upload: bool = False
 
 
 @dataclass

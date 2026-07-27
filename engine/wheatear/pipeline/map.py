@@ -12,6 +12,9 @@ importers and exporters stay direction-agnostic.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from wheatear.connectors.base import ImportResult, RawToolRef
 from wheatear.errors import MapError
 from wheatear.ir.schema import (
@@ -25,10 +28,19 @@ from wheatear.ir.schema import (
     ToolRef,
 )
 
-# Known source-connector -> target-tool mappings. Intentionally near-empty for
-# v1: most connectors are org-specific with no universal equivalent. Real
-# mappings get added (per corridor) as they're validated against real exports.
+# Known source-connector -> target-tool mappings. A hand-curated override table
+# checked ahead of the catalog resolver, so a validated corridor can pin a
+# specific target the fuzzy matcher would get wrong. Still near-empty by
+# default; the catalog resolver (below) does the general resolution.
 KNOWN_TOOL_MAPPINGS: dict[str, str] = {}
+
+# A connector resolver maps (app_name, description) -> a catalog match object
+# (or None). The object is duck-typed: it must expose .install_ref, .name,
+# .confidence (0-1), and .member_tools (iterable). See
+# connectors/orchestrate/catalog.py:connector_resolver. Kept as an injected
+# callable so this module stays decoupled from any one target's catalog and so
+# the default (None) preserves the pre-catalog behavior exactly.
+ConnectorResolver = Callable[[str, str | None], Any]
 
 # A custom connector's Power Platform id carries the publisher prefix with the
 # underscore percent-encoded, e.g. ".../apis/shared_cr3ea-5fservice-20now-...".
@@ -95,16 +107,65 @@ def _connector_tool(raw: RawToolRef) -> ToolRef:
     )
 
 
-def map_agent(import_result: ImportResult, target_platform: str = "orchestrate") -> Agent:
+# At/above this catalog confidence AND a single-tool match, the pick is trusted
+# (not flagged for review). A multi-tool app match always needs human tool
+# selection, so it's flagged regardless.
+_TRUST_CONFIDENCE = 0.9
+
+
+def map_agent(
+    import_result: ImportResult,
+    target_platform: str = "orchestrate",
+    *,
+    connector_resolver: ConnectorResolver | None = None,
+) -> Agent:
     """Populate tools/knowledge/connections on the IR Agent from the raw
     references Normalize extracted, resolved for `target_platform`. Returns the
     same Agent object, mutated.
+
+    `connector_resolver` (optional) resolves a source built-in connector to a
+    target catalog tool. When None (the default), behavior is exactly the
+    pre-catalog manual-flag path -- so existing call sites are unaffected.
     """
     if target_platform == "orchestrate":
-        return _map_to_orchestrate(import_result)
+        return _map_to_orchestrate(import_result, connector_resolver)
     if target_platform == "copilot-studio":
         return _map_to_copilot(import_result)
     raise MapError(f"No Map resolver for target platform '{target_platform}'.")
+
+
+def _resolve_connector(
+    ref: str,
+    description: str | None,
+    connector_resolver: ConnectorResolver | None,
+) -> ToolRef | None:
+    """Try the curated override table, then the injected catalog resolver.
+    Returns a resolved ToolRef, or None to fall back to the manual-flag path.
+    """
+    mapped = KNOWN_TOOL_MAPPINGS.get(ref)
+    if mapped:
+        return ToolRef(ref=mapped, source_ref=ref, confidence=1.0)
+    if connector_resolver is None:
+        return None
+    match = connector_resolver(ref, description)
+    if match is None:
+        return None
+    members = list(getattr(match, "member_tools", ()) or ())
+    needs_review = match.confidence < _TRUST_CONFIDENCE or len(members) > 1
+    detail = f" ({len(members)} tools in this toolkit; confirm which to install)" if len(members) > 1 else ""
+    return ToolRef(
+        ref=match.install_ref,
+        source_ref=ref,
+        kind=ToolKind.CONNECTOR,
+        bridge=BridgeStrategy.MCP_CATALOG,
+        confidence=match.confidence,
+        review_required=needs_review,
+        member_tools=members,
+        notes=(
+            f"Resolved connector '{ref}' to Orchestrate catalog '{match.name}' "
+            f"({match.install_ref}){detail}."
+        ),
+    )
 
 
 def _mcp_tool(raw: RawToolRef) -> ToolRef:
@@ -140,12 +201,23 @@ def _mcp_tool(raw: RawToolRef) -> ToolRef:
     )
 
 
-def _map_to_orchestrate(import_result: ImportResult) -> Agent:
+def _map_to_orchestrate(
+    import_result: ImportResult,
+    connector_resolver: ConnectorResolver | None = None,
+) -> Agent:
     agent = import_result.agent
 
     for raw in import_result.raw_tools:
         if raw.kind == "mcp":
             agent.tools.append(_mcp_tool(raw))
+            continue
+        # The curated resolver first: a validated corridor can pin a specific
+        # target the fuzzy matcher would get wrong. When it has no answer, a
+        # Power Platform connector still carries its full signature forward so
+        # the Resolve stage has something to match on.
+        resolved = _resolve_connector(raw.name, None, connector_resolver)
+        if resolved is not None:
+            agent.tools.append(resolved)
         elif raw.kind == "connector":
             agent.tools.append(_connector_tool(raw))
         else:
@@ -160,9 +232,9 @@ def _map_to_orchestrate(import_result: ImportResult) -> Agent:
             )
 
     for raw_ref in import_result.raw_tool_refs:
-        mapped = KNOWN_TOOL_MAPPINGS.get(raw_ref)
-        if mapped:
-            agent.tools.append(ToolRef(ref=mapped, source_ref=raw_ref, confidence=1.0))
+        resolved = _resolve_connector(raw_ref, None, connector_resolver)
+        if resolved is not None:
+            agent.tools.append(resolved)
         else:
             agent.tools.append(
                 ToolRef(
@@ -179,21 +251,29 @@ def _map_to_orchestrate(import_result: ImportResult) -> Agent:
             )
 
     for raw_knowledge in import_result.raw_knowledge_refs:
-        if raw_knowledge.file_path is not None:
-            # The document itself came across in the export, so this is a real
-            # upload rather than a re-ingestion project. Still flagged for
-            # review: Orchestrate enforces a size cap and the human picks which
-            # knowledge base receives it.
+        if raw_knowledge.file_path is not None or raw_knowledge.is_file_upload:
+            # Two shapes reach here. A Copilot componenttype-14 component ships
+            # the document itself, so `file_path` points at real bytes and the
+            # upload is something Wheatear can stage. An n8n
+            # readWriteFile->extractFromFile chain carries only a path, so the
+            # human re-supplies the files. Both are flagged for review either
+            # way: Orchestrate enforces a size cap and somebody picks which
+            # knowledge base receives them.
+            detail = f" (source path: {raw_knowledge.detail})" if raw_knowledge.detail else ""
             agent.knowledge.append(
                 KnowledgeRef(
                     ref=raw_knowledge.name,
                     source_ref=raw_knowledge.name,
                     review_required=True,
                     ingest_plan=IngestPlan.UPLOAD,
-                    file_path=str(raw_knowledge.file_path),
+                    file_path=str(raw_knowledge.file_path) if raw_knowledge.file_path else None,
                     notes=(
                         f"File '{raw_knowledge.file_path.name}' shipped with the source export; "
                         "upload it into an Orchestrate knowledge base (mind the 30MB cap)."
+                        if raw_knowledge.file_path
+                        else f"Direct file upload{detail}: re-supply the actual files to "
+                        "Orchestrate (the export contains only a path, not the file bytes; "
+                        "enforce the 30MB/file cap)."
                     ),
                 )
             )
@@ -222,6 +302,19 @@ def _map_to_orchestrate(import_result: ImportResult) -> Agent:
         agent.connections.append(
             ConnectionRef(ref=raw_ref, source_ref=raw_ref, auth_type="unknown", review_required=True)
         )
+
+    # Dedup tools by target ref: several source operations of one connector can
+    # resolve to the same catalog tool (e.g. ServiceNow ListRecords + GetRecords
+    # both land on the ServiceNow toolkit), and a duplicate tool reference in an
+    # Orchestrate agent is meaningless. Keep first occurrence (order-stable).
+    seen: set[str] = set()
+    deduped = []
+    for tool in agent.tools:
+        if tool.ref in seen:
+            continue
+        seen.add(tool.ref)
+        deduped.append(tool)
+    agent.tools = deduped
 
     return agent
 

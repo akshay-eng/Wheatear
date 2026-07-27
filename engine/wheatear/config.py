@@ -49,6 +49,10 @@ class WheatearConfig:
     # different root would otherwise be told it has no adapters while they sit
     # on disk a directory away.
     foundry_store_root: str | None = None
+    # n8n source (migrate-from instance). URL + env-var *name* only; the API
+    # key itself lives in the OS keychain (creds.KEY_N8N_API_KEY), never here.
+    n8n_base_url: str | None = None
+    n8n_api_key_env: str = "N8N_API_KEY"
     # First-launch onboarding (pre-flight dependency check) already shown
     onboarding_completed: bool = False
 
@@ -74,6 +78,8 @@ def load_config(path: Path = CONFIG_PATH) -> WheatearConfig | None:
         source_env_url=data.get("source_env_url"),
         source_tenant_id=data.get("source_tenant_id"),
         foundry_store_root=data.get("foundry_store_root"),
+        n8n_base_url=data.get("n8n_base_url"),
+        n8n_api_key_env=data.get("n8n_api_key_env", "N8N_API_KEY"),
         onboarding_completed=data.get("onboarding_completed", False),
     )
 

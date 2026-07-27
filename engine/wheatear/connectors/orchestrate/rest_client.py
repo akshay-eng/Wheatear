@@ -97,6 +97,48 @@ class OrchestrateRestClient:
         except ValueError as exc:
             raise RemoteAPIError(f"Orchestrate returned a non-JSON body for {path}.") from exc
 
+    def _post(self, path: str, body: dict) -> dict:
+        resp = self._session.post(
+            f"{self.base}{path}",
+            params={"workspace_id": self.workspace_id},
+            json=body,
+            timeout=(10, 120),
+        )
+        resp.raise_for_status()
+        return resp.json() if resp.text else {}
+
+    def _delete(self, path: str) -> None:
+        resp = self._session.delete(
+            f"{self.base}{path}", params={"workspace_id": self.workspace_id}, timeout=(10, 60)
+        )
+        resp.raise_for_status()
+
+    # ------------------------------------------------------------------
+    # Write helpers (provisioning)
+    # ------------------------------------------------------------------
+
+    def create_agent(self, spec: dict) -> dict:
+        """Create (or update) a native agent. Returns {id, is_update}."""
+        return self._post("/agents", spec)
+
+    def create_toolkit(self, name: str, server_url: str, transport: str = "sse", description: str = "") -> dict:
+        """Register an MCP server as a toolkit. Returns {id, ...}."""
+        return self._post("/toolkits", {
+            "name": name,
+            "description": description,
+            "mcp": {"server_url": server_url, "transport": transport},
+        })
+
+    def get_toolkit(self, toolkit_id: str) -> dict:
+        return self._get(f"/toolkits/{toolkit_id}")
+
+    def tools_for_toolkit(self, toolkit_id: str) -> list[dict]:
+        tools = self.list_all_tools()
+        return [t for t in tools if t.get("toolkit_id") == toolkit_id]
+
+    def delete_agent(self, agent_id: str) -> None:
+        self._delete(f"/agents/{agent_id}")
+
     # ------------------------------------------------------------------
     # Entity accessors
     # ------------------------------------------------------------------

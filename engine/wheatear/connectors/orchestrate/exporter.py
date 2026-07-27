@@ -28,10 +28,15 @@ _UNMAPPABLE_CHANNELS = {"msteams", "Microsoft365Copilot"}
 # at, applied a second time here because a match can also arrive from Map.
 MIN_TOOL_CONFIDENCE = 0.5
 
-# What a migrated agent runs as when the source said nothing usable. The
-# platform labels `default` and `react` deprecated and marks this one
-# "Recommended", so it is what a new agent should be created as.
-PREFERRED_STYLE = "react_core"
+# What a migrated agent runs as when the source said nothing usable.
+#
+# The console offers three styles -- ReAct Core (Recommended), Default
+# (Deprecated) and ReAct (Deprecated) -- and those map to the three values a
+# real tenant actually stores: `react_intrinsic`, `default` and `react`. The
+# ADK enum also contains `react_core`, which reads like the obvious choice and
+# is used by nothing; picking it by its name would land every migrated agent
+# on a style the console does not offer.
+PREFERRED_STYLE = "react_intrinsic"
 
 
 @dataclass
@@ -50,6 +55,20 @@ def _dump_yaml(data: dict, path: Path) -> None:
     with path.open("w") as f:
         yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
 
+
+def _sanitize_name(name: str) -> str:
+    """Orchestrate agent names must start with a letter and contain only
+    alphanumeric characters and underscores (no spaces). Applied consistently
+    to an agent's own name and to every collaborator reference so leaf-first
+    deploy still resolves the edges (both sides sanitize identically)."""
+    import re
+
+    cleaned = re.sub(r"[^0-9A-Za-z_]", "_", name).strip("_")
+    if not cleaned:
+        cleaned = "agent"
+    if not cleaned[0].isalpha():
+        cleaned = "a_" + cleaned
+    return cleaned
 
 def agent_style(agent: Agent) -> tuple[str, str | None]:
     """A style Orchestrate will accept, and what was discarded to get one.
@@ -101,8 +120,14 @@ def importable_tools(agent: Agent) -> tuple[list[str], list[ToolRef]]:
         # CATALOG_INSTALL is the explicit "found it, but nobody has installed
         # it" verdict. Every other bridge means the ref is answerable on the
         # instance, so confidence is the only remaining question.
-        absent = tool.bridge is BridgeStrategy.CATALOG_INSTALL
-        if tool.ref and not absent and tool.confidence >= MIN_TOOL_CONFIDENCE:
+        # Answerable on the instance right now. `None` is a tool pinned to a
+        # pre-existing target tool; MCP_CATALOG is one the resolver matched to
+        # something already installed. Every other bridge means the tool still
+        # has to be provisioned -- a catalog install, an OpenAPI import, an MCP
+        # re-point, a manual build -- and naming one of those fails the whole
+        # agent's import, so it is carried in the review manifest instead.
+        answerable = tool.bridge in (None, BridgeStrategy.MCP_CATALOG)
+        if tool.ref and answerable and tool.confidence >= MIN_TOOL_CONFIDENCE:
             # Two source tools routinely land on one target tool -- Copilot's
             # `GetRecord` and `ListRecords` both resolve to a single
             # `get_records`. Naming it twice in the spec claims the agent has
@@ -120,18 +145,25 @@ def _agent_spec(agent: Agent, llm: str) -> dict:
     spec: dict = {
         "spec_version": "v1",
         "kind": "native",
-        "name": agent.name,
+        "name": _sanitize_name(agent.name),
+        # description is a required field on the Orchestrate ADK Agent model, so
+        # always emit a non-empty value -- fall back to the agent name when the
+        # source didn't provide one (e.g. n8n agents have no description field).
+        "description": agent.description or agent.name,
         "llm": llm,
         "style": agent_style(agent)[0],
         "instructions": agent.instructions,
-        "collaborators": [c.ref for c in agent.collaborators],
+        # Only reference entities that will actually exist at import time. The
+        # ADK hard-fails an import if a referenced collaborator/tool/knowledge
+        # base isn't already registered. Collaborators resolve because the
+        # migration deploys leaf-first (both sides sanitize names identically).
+        "collaborators": [
+            _sanitize_name(c.ref) for c in agent.collaborators if not c.review_required
+        ],
         "tools": carried,
     }
-    # Required by the platform. When the source agent genuinely had none --
-    # Copilot does not oblige one -- the display name is the least-invented
-    # thing that still tells a reader what they are looking at. It is flagged
-    # for review rather than passed off as migrated content.
-    spec["description"] = agent.description or agent.name
+    if agent.name != spec["name"]:
+        spec["display_name"] = agent.name
     if agent.guidelines:
         # ADK AgentGuideline schema: display_name?/condition/action/tool?.
         spec["guidelines"] = [
@@ -147,11 +179,33 @@ def _agent_spec(agent: Agent, llm: str) -> dict:
             }
             for g in agent.guidelines
         ]
-    # The single merged base, and only if it will actually exist on the
-    # target: a ref to one that was never created fails the agent's import
-    # outright, the same way a missing tool does.
+    # Two shapes of knowledge reach this point and they need different specs.
+    #
+    # File-backed sources (a Copilot componenttype-14 component) are ingested
+    # into one merged base per agent -- Orchestrate permits an agent exactly
+    # one and rejects the whole agent otherwise, verified live -- so the ref is
+    # that base's name, not the individual documents'.
+    #
+    # Reference-backed sources (n8n pointing at an existing vector store) are
+    # already named on the target, so their own refs are what to emit. Ones
+    # still flagged for review are left out: a ref to a base that does not
+    # exist fails the agent's import outright, the same way a missing tool does.
     if any(k.file_path for k in agent.knowledge):
         spec["knowledge_base"] = [knowledge_base_name(agent)]
+    else:
+        # A ref with no documents is only safe to name if something positively
+        # says the target already has it: nothing outstanding to do, and a
+        # source_ref showing it was read off a real platform rather than
+        # invented. A Copilot knowledge source pointing at a SharePoint site
+        # has neither, and naming it produces an agent that looks migrated,
+        # answers nothing, and fails its own import.
+        deployable_kb = [
+            k.ref
+            for k in agent.knowledge
+            if not k.review_required and k.ingest_plan is None and k.source_ref
+        ]
+        if deployable_kb:
+            spec["knowledge_base"] = deployable_kb
     if agent.welcome_message:
         # ADK WelcomeContent schema (welcome_content.py).
         spec["welcome_content"] = {

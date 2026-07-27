@@ -1,0 +1,206 @@
+{
+  "name": "Supervisor",
+  "nodes": [
+    {
+      "id": "chattrigger-sup-1",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "b6f2b6d0-8a1a-4b3e-9c2a-supervisorchat1",
+      "parameters": {
+        "public": true,
+        "mode": "hostedChat",
+        "initialMessages": "Hi! I'm the Raytech support assistant. Ask me about HR policy or a candidate's status.",
+        "options": {}
+      }
+    },
+    {
+      "id": "agent-sup-1",
+      "name": "Supervisor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are the Supervisor agent for Raytech's support system. You have two specialist agents available as tools:\n\n1. HR Agent \u2014 handles company HR policy, process, and recruitment-program questions (leave policy, benefits, onboarding, interview process, offer guidelines), grounded in Raytech's HR knowledge base.\n\n2. Candidate Agent \u2014 handles queries about specific candidates in the hiring pipeline (status, stage, contact details, applied role) using a connected candidate data tool.\n\nRouting rules:\n- If the request is about HR policy, process, or general HR/recruitment knowledge \u2192 call the HR Agent.\n- If the request is about a specific candidate or requires candidate data \u2192 call the Candidate Agent.\n- If the request needs both, call both and merge the results into one coherent answer.\n- Never answer HR-policy or candidate-data questions yourself \u2014 always delegate. Only handle greetings, clarifying questions, or combining results directly.\n- Do not mention agent names, tools, or internal architecture to the user.\n- Keep the final answer concise and professional."
+        }
+      }
+    },
+    {
+      "id": "model-sup-1",
+      "name": "Gemini Chat Model (Supervisor)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        500
+      ],
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro"
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RV4nDj1nmSzCNt9T",
+          "name": "Google Gemini - Recruitment Demo"
+        }
+      }
+    },
+    {
+      "id": "memory-sup-1",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        300,
+        700
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "tool-hr-sup-1",
+      "name": "HR Agent Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        500
+      ],
+      "parameters": {
+        "description": "Call this tool for any HR policy, process, onboarding, benefits, or interview-guideline question. Input: a natural-language HR question.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "T343QtPkcAXNGlRw",
+          "mode": "id",
+          "cachedResultName": "HR Agent"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ $fromAI('query', 'The HR-related question to ask the HR agent', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "tool-cand-sup-1",
+      "name": "Candidate Agent Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        700
+      ],
+      "parameters": {
+        "description": "Call this tool for any question about a specific candidate in the hiring pipeline \u2014 status, stage, contact info, applied role. Input: a natural-language question naming the candidate.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "S7m2zocL1QtCOoyk",
+          "mode": "id",
+          "cachedResultName": "Candidate Agent"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ $fromAI('query', 'The candidate-related question to ask the candidate agent', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model (Supervisor)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HR Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Supervisor Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": true,
+  "id": "h6wAloIJ62rKQMQM",
+  "meta": {}
+}

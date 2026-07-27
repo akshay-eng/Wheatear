@@ -66,6 +66,14 @@ secrets.*
 *credentials*.json
 *_token.txt
 
+# Reference assets + migration outputs (real exports, PDFs, deployed YAML).
+migration_assets/
+n8n-migration/
+
+# Large scraped n8n node catalog (2MB) -- optional enrichment only, not on the
+# migration critical path; the Orchestrate catalog-snapshot.json IS committed.
+engine/wheatear/connectors/orchestrate/data/n8n-node-catalog-snapshot.json
+
 # ---------------------------------------------------------------------------
 # Build, cache and editor noise
 # ---------------------------------------------------------------------------

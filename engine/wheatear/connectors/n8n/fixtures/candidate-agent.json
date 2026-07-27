@@ -1,0 +1,124 @@
+{
+  "name": "Candidate Agent",
+  "nodes": [
+    {
+      "id": "trigger-cand-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "query",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "agent-cand-1",
+      "name": "Candidate Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query }}",
+        "options": {
+          "systemMessage": "=You are the Candidate Agent for Raytech's recruitment system. You retrieve and present information about candidates in the hiring pipeline using the tools available via the connected MCP server (a SQLite database of candidates).\n\nAvailable tools:\n- get_schema: returns the candidates table structure. Call this first if you're unsure of column names.\n- run_sql: run a single read-only SELECT/WITH statement against the candidates table for any filtered or fuzzy lookup (by name, salary range, location, designation, experience, etc.).\n- get_candidate: fetch one candidate's full record by numeric id.\n- compare_candidates: compare 2-10 candidates side by side by id.\n- list_filter_options: look up the real distinct values for fields like designation, work type, or office location before filtering on them.\n\nRules:\n- Always use the tools to fetch current data; never rely on memory or assumption.\n- For a name search or any filtered lookup, use run_sql (call get_schema first if you need column names).\n- If a candidate name/ID is ambiguous or not found, ask a clarifying question or state clearly that no match was found.\n- Return only the fields relevant to the request. Do not surface sensitive fields (e.g. exact salary) unless explicitly asked.\n- If asked a general HR policy question, respond that this is handled by a different agent (the HR Agent) and do not attempt to answer it.\n- Keep responses concise and professional."
+        }
+      }
+    },
+    {
+      "id": "model-cand-1",
+      "name": "Gemini Chat Model (Candidate)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        500
+      ],
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro"
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RV4nDj1nmSzCNt9T",
+          "name": "Google Gemini - Recruitment Demo"
+        }
+      }
+    },
+    {
+      "id": "mcp-cand-1",
+      "name": "MCP Client Tool",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        300,
+        700
+      ],
+      "parameters": {
+        "endpointUrl": "http://150.239.165.119:8010/sse",
+        "serverTransport": "sse",
+        "authentication": "none",
+        "include": "selected",
+        "includeTools": [
+          "get_candidate",
+          "list_filter_options",
+          "compare_candidates",
+          "run_sql",
+          "get_schema"
+        ]
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Candidate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model (Candidate)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Candidate Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Candidate Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": true,
+  "id": "S7m2zocL1QtCOoyk",
+  "meta": {}
+}
