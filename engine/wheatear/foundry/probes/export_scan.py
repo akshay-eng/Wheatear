@@ -60,7 +60,12 @@ IGNORED: tuple[re.Pattern[str], ...] = (
     re.compile(r"(^|/)customizations\.xml$"),
     re.compile(r"(^|/)review-manifest\.ya?ml$"),  # Wheatear's own review output
     re.compile(r"\.orchestrate\.ya?ml$"),  # Wheatear's own converted agents
-    re.compile(r"(^|/)\.git/"),
+    # Hidden dot-directories are tooling/OS/VCS state, never Copilot content: a
+    # real export sitting in a working tree routinely carries .git/, .vscode/,
+    # .idea/, or a tool's cache (e.g. .impeccable/). Ignore the lot rather than
+    # flagging their JSON/state files as unclassified migratable content.
+    re.compile(r"(^|/)\.[^/]+/"),
+    re.compile(r"(^|/)\.ds_store$"),  # macOS Finder metadata (path is lowercased)
 )
 
 # Ordered classification rules, first match wins. Matched against the archive
