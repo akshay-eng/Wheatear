@@ -57,6 +57,21 @@ def wizard():
     run_wizard()
 
 
+def _register_foundry() -> None:
+    """Attach `wheatear foundry`.
+
+    Imported here rather than at module scope so a plain `wheatear migrate`
+    never pays for the foundry's imports, and so a broken foundry can't stop
+    the rest of the CLI from working.
+    """
+    from wheatear.foundry.cli import register
+
+    register(main)
+
+
+_register_foundry()
+
+
 @main.command()
 @click.argument("clone_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def extract(clone_dir: Path):
