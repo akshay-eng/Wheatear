@@ -2847,7 +2847,13 @@ def _ask_store_root(store, reason: str):
             f"Looked in: [cyan]{store.root}[/cyan]\n\n"
             "The Copilot Studio → Orchestrate corridor is compiled once and cached; every\n"
             "migration after that reuses it and calls no model to read your export.\n\n"
-            "  Build it:      [cyan]wheatear foundry corridor copilot-studio orchestrate[/cyan]\n"
+            "Building it is three commands -- `corridor` needs both platforms probed\n"
+            "first and stops if they are not:\n\n"
+            "  [cyan]wheatear foundry probe copilot-studio --export <unpacked-solution> --offline[/cyan]\n"
+            "  [cyan]wheatear foundry probe orchestrate[/cyan]\n"
+            "  [cyan]wheatear foundry corridor copilot-studio orchestrate[/cyan]\n\n"
+            "[dim]The probes are quick. The corridor build is the slow one: a model call per\n"
+            "entity kind, then the generated code compiled and tested in a sandbox.[/dim]\n\n"
             "  Already built elsewhere? Point Wheatear at that directory below.",
             title="[bold yellow]Adapters not compiled on this machine[/bold yellow]",
             border_style="yellow",
