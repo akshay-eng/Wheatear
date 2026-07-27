@@ -153,6 +153,19 @@ def console_base(instance_url: str) -> str:
     return console_candidates(instance_url)[0]
 
 
+def console_origin(instance_url: str) -> str:
+    """The console's web origin -- what a person opens in a browser.
+
+    Derived the same way as the catalog base and trimmed back to the host,
+    because that host is verifiable and the routes under it are not: the
+    console is a single-page app that answers 200 with the same shell for
+    every path, including ones that do not exist. So this is as deep as a
+    link can honestly go without somebody reading a real URL off their own
+    address bar.
+    """
+    return console_base(instance_url).split("/mfe_catalog")[0]
+
+
 def _csrf_from_cookie(cookie_header: str) -> str | None:
     """Derive the `x-ibm-wo-csrf` header from a browser `Cookie:` header.
 
