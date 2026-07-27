@@ -66,6 +66,11 @@ secrets.*
 *credentials*.json
 *_token.txt
 
+# Human-readable dumps of the catalog. `dump_catalog.py` writes these beside
+# catalog-snapshot.json, which is the one the code actually reads; the text
+# versions are half a megabyte of the same data that nothing loads.
+engine/catalog-snapshot*.txt
+
 # Reference assets + migration outputs (real exports, PDFs, deployed YAML).
 migration_assets/
 n8n-migration/
