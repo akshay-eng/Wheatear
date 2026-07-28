@@ -12,12 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from wheatear.foundry import engineer, inspector
-from wheatear.foundry.orchestrator import Orchestrator
-from wheatear.foundry.probes.base import ProbeContext
-from wheatear.foundry.sandbox import SubprocessSandbox
-from wheatear.foundry.store import FoundryStore
-from wheatear.foundry.types import (
+from agent_liftoff.foundry import engineer, inspector
+from agent_liftoff.foundry.orchestrator import Orchestrator
+from agent_liftoff.foundry.probes.base import ProbeContext
+from agent_liftoff.foundry.sandbox import SubprocessSandbox
+from agent_liftoff.foundry.store import FoundryStore
+from agent_liftoff.foundry.types import (
     AdapterArtifact,
     AdapterKey,
     CaseFailure,
@@ -33,7 +33,7 @@ from wheatear.foundry.types import (
     TransformKind,
 )
 
-FIXTURES = Path(__file__).resolve().parents[1] / "wheatear/connectors/copilot_studio/fixtures"
+FIXTURES = Path(__file__).resolve().parents[1] / "agent_liftoff/connectors/copilot_studio/fixtures"
 SOLUTION = FIXTURES / "sample_solution_agent"
 
 
@@ -212,7 +212,7 @@ def test_an_adapter_for_a_different_schema_is_stale_not_a_hit(tmp_path):
 def test_an_adapter_compiled_against_a_different_ir_version_is_stale(tmp_path):
     store = FoundryStore(tmp_path)
     spec = _spec(fingerprint="abc")
-    spec.ir_version = "wheatear/v0"
+    spec.ir_version = "agent_liftoff/v0"
     store.put(_artifact(spec))
     lookup = store.find("acme", Direction.IMPORT, EntityKind.AGENT, "abc")
     assert lookup.status == "stale"
@@ -624,7 +624,7 @@ def test_a_real_export_becomes_a_tested_adapter_that_produces_valid_ir(tmp_path)
     fixtures, correlate against the IR, compile, run the generated tests for
     real, then convert a batch and validate the result as IR.
     """
-    from wheatear.foundry import runtime
+    from agent_liftoff.foundry import runtime
 
     store = FoundryStore(tmp_path)
     orchestrator = Orchestrator(store=store, sandbox=SubprocessSandbox(timeout_s=60))
@@ -750,7 +750,7 @@ def test_no_export_adapter_is_built_for_a_kind_the_target_looks_up(tmp_path):
     a Copilot connector's fields. An export adapter for it maps into a shape
     nothing will ever be created from -- 138 mappings, 715 flags, no consumer.
     """
-    from wheatear.foundry.orchestrator import LOOKUP_RESOLVED
+    from agent_liftoff.foundry.orchestrator import LOOKUP_RESOLVED
 
     assert EntityKind.TOOL in LOOKUP_RESOLVED
     assert EntityKind.KNOWLEDGE in LOOKUP_RESOLVED

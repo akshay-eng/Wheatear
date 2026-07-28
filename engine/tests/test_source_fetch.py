@@ -1,12 +1,12 @@
-from wheatear.source_fetch import looks_like_url, parse_github_url
+from agent_liftoff.source_fetch import looks_like_url, parse_github_url
 
 
 def test_looks_like_url_recognizes_https():
-    assert looks_like_url("https://github.com/akshay-eng/Wheatear") is True
+    assert looks_like_url("https://github.com/akshay-eng/Agent Liftoff") is True
 
 
 def test_looks_like_url_recognizes_ssh_form():
-    assert looks_like_url("git@github.com:akshay-eng/Wheatear.git") is True
+    assert looks_like_url("git@github.com:akshay-eng/Agent Liftoff.git") is True
 
 
 def test_looks_like_url_rejects_local_paths():
@@ -16,15 +16,15 @@ def test_looks_like_url_rejects_local_paths():
 
 
 def test_parse_github_url_plain_repo_adds_git_suffix():
-    repo_url, branch, subpath = parse_github_url("https://github.com/akshay-eng/Wheatear")
-    assert repo_url == "https://github.com/akshay-eng/Wheatear.git"
+    repo_url, branch, subpath = parse_github_url("https://github.com/akshay-eng/Agent Liftoff")
+    assert repo_url == "https://github.com/akshay-eng/Agent Liftoff.git"
     assert branch is None
     assert subpath == ""
 
 
 def test_parse_github_url_already_has_git_suffix():
-    repo_url, branch, subpath = parse_github_url("https://github.com/akshay-eng/Wheatear.git")
-    assert repo_url == "https://github.com/akshay-eng/Wheatear.git"
+    repo_url, branch, subpath = parse_github_url("https://github.com/akshay-eng/Agent Liftoff.git")
+    assert repo_url == "https://github.com/akshay-eng/Agent Liftoff.git"
 
 
 def test_parse_github_tree_url_extracts_branch_and_subpath():

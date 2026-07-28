@@ -1,6 +1,6 @@
 """Migrate a Copilot Studio solution export into watsonx Orchestrate.
 
-A thin driver. Everything it does lives in `wheatear.pipeline.solution_migration`,
+A thin driver. Everything it does lives in `agent_liftoff.pipeline.solution_migration`,
 because the wizard runs the same migration and two copies of a pipeline are how
 the two start disagreeing about what a migration does. This file owns the
 argument parsing and the printing, and nothing else.
@@ -13,8 +13,8 @@ import os
 import sys
 from pathlib import Path
 
-from wheatear.foundry.store import FoundryStore
-from wheatear.pipeline.solution_migration import Event, MigrationReport, migrate_solution
+from agent_liftoff.foundry.store import FoundryStore
+from agent_liftoff.pipeline.solution_migration import Event, MigrationReport, migrate_solution
 
 STAGE_TITLES = {
     "scan": "1. SCAN + IR   (cached adapters, no model calls)",
@@ -91,7 +91,7 @@ def main() -> None:
     client = None
     instance_url, token = os.environ.get("IBMUrl"), None
     try:
-        from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient
+        from agent_liftoff.connectors.orchestrate.rest_client import OrchestrateRestClient
 
         client = OrchestrateRestClient(os.environ["IBMKey"], os.environ["IBMUrl"])
         token = client._session.headers["Authorization"].split()[1]
@@ -100,9 +100,9 @@ def main() -> None:
 
     provider = None
     if not args.no_llm:
-        from wheatear import creds
-        from wheatear.config import load_config
-        from wheatear.llm.factory import build_provider
+        from agent_liftoff import creds
+        from agent_liftoff.config import load_config
+        from agent_liftoff.llm.factory import build_provider
 
         saved = load_config()
         if saved and saved.llm_provider:

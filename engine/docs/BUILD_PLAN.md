@@ -1,4 +1,4 @@
-# Wheatear build plan
+# Agent Liftoff build plan
 
 Companion to `MIGRATION_DESIGN.md`. That doc is the *what/why* (the mapping);
 this is the *how/when* (the build), sequenced and grounded in a real export:

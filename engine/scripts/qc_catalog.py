@@ -22,16 +22,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from wheatear.connectors.orchestrate.catalog_client import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import (  # noqa: E402
     COOKIE_ENV,
     OrchestrateCatalogClient,
     enrich_artifacts,
     to_artifacts,
 )
-from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient  # noqa: E402
-from wheatear.errors import WheatearError  # noqa: E402
-from wheatear.ir.schema import ToolParameter, ToolRef  # noqa: E402
-from wheatear.pipeline.resolve import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.rest_client import OrchestrateRestClient  # noqa: E402
+from agent_liftoff.errors import LiftoffError  # noqa: E402
+from agent_liftoff.ir.schema import ToolParameter, ToolRef  # noqa: E402
+from agent_liftoff.pipeline.resolve import (  # noqa: E402
     build_catalog,
     build_marketplace_catalog,
     shortlist,
@@ -102,7 +102,7 @@ def main() -> int:
             "Tier 1 is the pool that is importable today; without it nothing resolves.",
             f"kinds: {dict(Counter(t.kind for t in installed))}",
         )
-    except WheatearError as exc:
+    except LiftoffError as exc:
         report.check(False, "could not read installed tools", "Tier 1 is unavailable.", str(exc))
         installed = []
 
@@ -119,7 +119,7 @@ def main() -> int:
         started = time.time()
         records = client.list_installable()
         elapsed = time.time() - started
-    except WheatearError as exc:
+    except LiftoffError as exc:
         report.check(False, "catalog unreachable", "Tier 2 matching is unavailable.", str(exc))
         print(f"\n{YELLOW}Tier 1 still works. Fix the catalog auth and re-run.{RESET}")
         return 1

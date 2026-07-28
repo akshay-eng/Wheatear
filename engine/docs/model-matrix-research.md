@@ -1,7 +1,7 @@
 # Model matrix engine — how it works, what's in it, worked examples
 
-New standalone package: `engine/wheatear/model_matrix/`. Separate from the
-existing `wheatear/model_map.py` (which stays as the static, zero-dependency
+New standalone package: `engine/agent_liftoff/model_matrix/`. Separate from the
+existing `agent_liftoff/model_map.py` (which stays as the static, zero-dependency
 fallback) as requested. Built from a live multi-agent research pass across
 Claude, OpenAI, Gemini, DeepSeek, Qwen, gpt-oss, Kimi, Gemma, and Nemotron —
 **71 researched model profiles**, not guessed.
@@ -9,8 +9,8 @@ Claude, OpenAI, Gemini, DeepSeek, Qwen, gpt-oss, Kimi, Gemma, and Nemotron —
 ## How to use it
 
 ```python
-from wheatear.model_matrix import recommend
-from wheatear.model_matrix.target_sources import OrchestrateModelSource
+from agent_liftoff.model_matrix import recommend
+from agent_liftoff.model_matrix.target_sources import OrchestrateModelSource
 
 # OrchestrateModelSource shells out to the `orchestrate` ADK CLI (models list
 # --raw) -- activate an env first: orchestrate env activate <name> --api-key ...
@@ -26,7 +26,7 @@ for candidate in recommendation.ranked_candidates:
 candidate ranked, not just the winner, specifically so a human reviewing a
 migration can see the runner-ups and why they lost. `Recommendation.
 review_required` is always `True` — matches the same philosophy already in
-`wheatear/ir/schema.py` (`ConnectionRef.review_required`, `model_family`
+`agent_liftoff/ir/schema.py` (`ConnectionRef.review_required`, `model_family`
 comment: "a human should confirm it").
 
 ## Package layout

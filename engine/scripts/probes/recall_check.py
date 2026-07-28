@@ -11,12 +11,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from wheatear.connectors.orchestrate.catalog_client import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import (  # noqa: E402
     OrchestrateCatalogClient,
     to_artifacts,
 )
-from wheatear.ir.schema import ToolParameter, ToolRef  # noqa: E402
-from wheatear.pipeline.resolve import build_marketplace_catalog, shortlist  # noqa: E402
+from agent_liftoff.ir.schema import ToolParameter, ToolRef  # noqa: E402
+from agent_liftoff.pipeline.resolve import build_marketplace_catalog, shortlist  # noqa: E402
 
 HAR = os.environ["WXO_HAR"]  # path to the console HAR capture
 har = json.load(open(HAR))

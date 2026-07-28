@@ -2,7 +2,7 @@
 
 import pytest
 
-from wheatear.connectors.orchestrate.catalog import (
+from agent_liftoff.connectors.orchestrate.catalog import (
     DEFAULT_N8N_NODE_CATALOG_PATH,
     HIGH_CONFIDENCE,
     auth_kind_for_n8n_credential,

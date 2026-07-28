@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.importer import detect_format
-from wheatear.connectors.copilot_studio.importer import import_agent as dispatch_import_agent
-from wheatear.connectors.copilot_studio.solution_importer import import_agent
-from wheatear.ir.schema import DialogNodeKind
+from agent_liftoff.connectors.copilot_studio.importer import detect_format
+from agent_liftoff.connectors.copilot_studio.importer import import_agent as dispatch_import_agent
+from agent_liftoff.connectors.copilot_studio.solution_importer import import_agent
+from agent_liftoff.ir.schema import DialogNodeKind
 
 FIXTURE_DIR = (
     Path(__file__).parent.parent
-    / "wheatear"
+    / "agent_liftoff"
     / "connectors"
     / "copilot_studio"
     / "fixtures"
@@ -361,7 +361,7 @@ def test_import_workflow_rewrites_collaborators_to_agent_names(tmp_path):
     """Edges are stored by schema name (bot_hr) but agents are named by
     display name (HR Agent); unresolved refs wouldn't exist on the target.
     """
-    from wheatear.connectors.copilot_studio.solution_importer import import_workflow
+    from agent_liftoff.connectors.copilot_studio.solution_importer import import_workflow
 
     workflow, _ = import_workflow(_make_multi_bot_solution(tmp_path))
 
@@ -374,7 +374,7 @@ def test_import_workflow_rewrites_collaborators_to_agent_names(tmp_path):
 
 
 def test_import_workflow_flags_an_edge_leaving_the_export(tmp_path):
-    from wheatear.connectors.copilot_studio.solution_importer import import_workflow
+    from agent_liftoff.connectors.copilot_studio.solution_importer import import_workflow
 
     workflow, _ = import_workflow(_make_solution(tmp_path))
 

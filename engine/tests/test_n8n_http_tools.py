@@ -9,8 +9,8 @@ mode a migration tool has the least excuse for.
 
 from __future__ import annotations
 
-from wheatear.connectors.n8n import http_tools
-from wheatear.connectors.orchestrate import http_tool_build as build
+from agent_liftoff.connectors.n8n import http_tools
+from agent_liftoff.connectors.orchestrate import http_tool_build as build
 
 
 def node(**parameters) -> dict:

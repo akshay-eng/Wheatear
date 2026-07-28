@@ -11,13 +11,13 @@ from pathlib import Path
 
 import pytest
 
-from wheatear.foundry import inspector
-from wheatear.foundry.probes import export_scan
-from wheatear.foundry.probes.base import ProbeContext, ProbeResult, observe
-from wheatear.foundry.probes.export_scan import classify, scan_export
-from wheatear.foundry.types import EntityKind, GapReason, ProbeGap, ProbeOrigin
+from agent_liftoff.foundry import inspector
+from agent_liftoff.foundry.probes import export_scan
+from agent_liftoff.foundry.probes.base import ProbeContext, ProbeResult, observe
+from agent_liftoff.foundry.probes.export_scan import classify, scan_export
+from agent_liftoff.foundry.types import EntityKind, GapReason, ProbeGap, ProbeOrigin
 
-FIXTURES = Path(__file__).resolve().parents[1] / "wheatear/connectors/copilot_studio/fixtures"
+FIXTURES = Path(__file__).resolve().parents[1] / "agent_liftoff/connectors/copilot_studio/fixtures"
 SOLUTION = FIXTURES / "sample_solution_agent"
 CLONE = FIXTURES / "sample_agent"
 
@@ -176,7 +176,7 @@ def test_a_zip_export_is_read_without_leaving_anything_behind(tmp_path):
         zf.writestr("agents/two.json", '{"name": "b", "description": "e"}')
     result = scan_export(archive)
     assert _kinds(result) == {EntityKind.AGENT}
-    assert not list(tmp_path.glob("wheatear-scan-*"))
+    assert not list(tmp_path.glob("agent_liftoff-scan-*"))
 
 
 def test_an_archive_entry_that_escapes_its_root_is_refused(tmp_path):
@@ -262,7 +262,7 @@ def test_a_probe_source_that_raises_becomes_a_gap():
 
 
 def test_two_sources_describing_one_kind_produce_one_schema():
-    from wheatear.foundry.types import EntitySchema, FieldNode
+    from agent_liftoff.foundry.types import EntitySchema, FieldNode
 
     export = EntitySchema(
         kind=EntityKind.AGENT,
@@ -297,7 +297,7 @@ def test_merged_samples_are_taken_round_robin():
     """A source with 200 records must not crowd out the one with 3 -- the
     small one is usually the live API, and its records are the richer ones.
     """
-    from wheatear.foundry.types import EntitySchema
+    from agent_liftoff.foundry.types import EntitySchema
 
     big = EntitySchema(
         kind=EntityKind.TOOL, name="big", origin=ProbeOrigin.EXPORT, sample_count=40,
@@ -326,7 +326,7 @@ def test_the_ir_corpus_is_read_from_the_models():
 
 
 def test_the_ir_declares_what_it_has_no_primitive_for():
-    """A trigger has nowhere to land today. That is a fact about Wheatear, not
+    """A trigger has nowhere to land today. That is a fact about Agent Liftoff, not
     about the source platform, and it belongs in the record rather than being
     discovered later as an empty mapping.
     """
@@ -351,7 +351,7 @@ def test_composed_ir_subtrees_are_named_so_they_can_be_excluded():
 
 
 def test_the_orchestrate_probe_reports_a_gap_rather_than_failing_without_credentials():
-    from wheatear.foundry.probes.orchestrate import OrchestrateProbe
+    from agent_liftoff.foundry.probes.orchestrate import OrchestrateProbe
 
     result = OrchestrateProbe().probe(ProbeContext(platform="orchestrate"))
     assert result.entities == []
@@ -360,14 +360,14 @@ def test_the_orchestrate_probe_reports_a_gap_rather_than_failing_without_credent
 
 
 def test_the_dataverse_probe_names_the_credential_it_wanted():
-    from wheatear.foundry.probes.copilot_studio import DataverseProbe
+    from agent_liftoff.foundry.probes.copilot_studio import DataverseProbe
 
     result = DataverseProbe().probe(ProbeContext(platform="copilot-studio"))
     assert any("token" in (gap.remedy or "") for gap in result.gaps)
 
 
 def test_offline_mode_makes_no_network_call_and_says_why():
-    from wheatear.foundry.probes.orchestrate import OrchestrateProbe
+    from agent_liftoff.foundry.probes.orchestrate import OrchestrateProbe
 
     context = ProbeContext(
         platform="orchestrate", instance_url="https://example.invalid",
@@ -383,7 +383,7 @@ def test_a_copilot_component_type_of_nine_is_split_by_its_payload_kind():
     same type; only the payload's `kind` tells them apart. Mapping them to one
     kind would produce a topic adapter that had to cope with tool records.
     """
-    from wheatear.foundry.probes.copilot_studio import _component_kind
+    from agent_liftoff.foundry.probes.copilot_studio import _component_kind
 
     assert _component_kind({"componenttype": 9, "data": {"kind": "TaskDialog"}}) is EntityKind.TOOL
     assert _component_kind({"componenttype": 9, "data": {"kind": "AdaptiveDialog"}}) is EntityKind.TOPIC
@@ -410,7 +410,7 @@ def test_merged_occurrence_is_weighted_by_records_not_averaged_across_sources():
     lacked it. Averaging across sources produces numbers that make a reviewer
     distrust the corpus -- correctly, because they are wrong.
     """
-    from wheatear.foundry.types import EntitySchema, FieldNode
+    from agent_liftoff.foundry.types import EntitySchema, FieldNode
 
     api = EntitySchema(
         kind=EntityKind.AGENT, name="api", origin=ProbeOrigin.API, sample_count=33,

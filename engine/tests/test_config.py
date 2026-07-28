@@ -1,6 +1,6 @@
 import json
 
-from wheatear.config import WheatearConfig, load_config, save_config
+from agent_liftoff.config import LiftoffConfig, load_config, save_config
 
 
 def test_load_config_returns_none_when_no_file_exists(tmp_path):
@@ -9,23 +9,23 @@ def test_load_config_returns_none_when_no_file_exists(tmp_path):
 
 def test_save_then_load_round_trips(tmp_path):
     path = tmp_path / "config.json"
-    save_config(WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY"), path)
+    save_config(LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY"), path)
 
     loaded = load_config(path)
 
-    assert loaded == WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
+    assert loaded == LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
 
 
 def test_save_config_never_writes_a_secret_value(tmp_path):
     """Enumerate every key the config file is allowed to contain.
 
-    If a new field is added to WheatearConfig it must be listed here
+    If a new field is added to LiftoffConfig it must be listed here
     explicitly, forcing a conscious decision that it's safe (not a secret
     value) to persist on disk. Fields ending in '_env' store an env-var
     NAME, not the secret itself.
     """
     path = tmp_path / "config.json"
-    save_config(WheatearConfig(), path)
+    save_config(LiftoffConfig(), path)
 
     raw = json.loads(path.read_text())
     assert set(raw.keys()) == {

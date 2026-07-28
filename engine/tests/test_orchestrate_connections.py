@@ -1,13 +1,13 @@
 """Whether the target can actually authenticate to the system a tool talks to.
 
-Wheatear never moves credentials, so the only useful thing it can do is read
+Agent Liftoff never moves credentials, so the only useful thing it can do is read
 what the target already has and say plainly what is missing. A migrated tool
 with no connection behind it imports cleanly and fails on the first call.
 """
 
 import pytest
 
-from wheatear.connectors.orchestrate.connections import AppConnection, matching
+from agent_liftoff.connectors.orchestrate.connections import AppConnection, matching
 
 
 def _conn(app_id, **overrides):
@@ -82,7 +82,7 @@ def test_a_tool_that_declares_no_connection_says_so():
     none of them. The MCP server behind it holds its own credentials, so
     nothing prompts anybody to sign in.
     """
-    from wheatear.connectors.orchestrate.connections import bound_connection
+    from agent_liftoff.connectors.orchestrate.connections import bound_connection
 
     binding = bound_connection(
         {
@@ -96,7 +96,7 @@ def test_a_tool_that_declares_no_connection_says_so():
 
 
 def test_a_declared_connection_is_read_from_the_binding():
-    from wheatear.connectors.orchestrate.connections import bound_connection
+    from agent_liftoff.connectors.orchestrate.connections import bound_connection
 
     # Real shape, captured from a live tool record: {app_id: connection_id}.
     # The fixture this replaced had them the other way round -- invented rather
@@ -113,7 +113,7 @@ def test_a_name_match_is_never_mistaken_for_a_binding():
     """`matching` answers "might be related"; `bound_connection` answers "is
     used". Conflating them is what turned a guess into a stated fact.
     """
-    from wheatear.connectors.orchestrate.connections import bound_connection
+    from agent_liftoff.connectors.orchestrate.connections import bound_connection
 
     record = {"name": "SNOWMCPALL:get_record", "binding": {"mcp": {"connections": {}}}}
     suggestions = matching([_conn("servicenow_oauth2_auth_code_ibm")], record["name"])
@@ -130,7 +130,7 @@ def test_a_binding_maps_app_ids_to_connection_ids_and_they_are_not_interchangeab
     one *named* after a UUID, which then failed to configure with a tenant
     outbound-call policy error naming the pasted credential.
     """
-    from wheatear.connectors.orchestrate.connections import bound_connection
+    from agent_liftoff.connectors.orchestrate.connections import bound_connection
 
     record = {
         "name": "get_records_ae899",
@@ -152,7 +152,7 @@ def test_a_binding_maps_app_ids_to_connection_ids_and_they_are_not_interchangeab
 def test_a_tool_binding_no_connection_still_declares_nothing():
     """Unchanged behaviour: an MCP tool holding its own credentials names no
     connection, and a name that merely looks similar is not evidence."""
-    from wheatear.connectors.orchestrate.connections import bound_connection
+    from agent_liftoff.connectors.orchestrate.connections import bound_connection
 
     assert bound_connection({"binding": {"mcp": {"connections": {}}}}).declared is False
     assert bound_connection({}).app_ids == ()
@@ -161,7 +161,7 @@ def test_a_tool_binding_no_connection_still_declares_nothing():
 def test_a_url_prompt_rejects_a_pasted_credential():
     """A server-URL prompt sits next to a token prompt. The platform's answer
     to a token in that field is a policy error that quotes the token back."""
-    from wheatear.connectors.orchestrate.provisioning import looks_like_a_url
+    from agent_liftoff.connectors.orchestrate.provisioning import looks_like_a_url
 
     assert looks_like_a_url("https://dev000000.service-now.com/")
     assert looks_like_a_url("dev000000.service-now.com")
@@ -176,7 +176,7 @@ def test_a_url_prompt_rejects_a_pasted_credential():
 # Keeping the ADK session alive
 # ----------------------------------------------------------------------
 
-ENV_LIST = """ wheatear-migration  https://api.us-south.watson-orchestrate.cloud.i…  (active)
+ENV_LIST = """ agent_liftoff-migration  https://api.us-south.watson-orchestrate.cloud.i…  (active)
  local               http://localhost:4321
 """
 
@@ -185,11 +185,11 @@ def test_a_truncated_env_url_still_matches_its_instance():
     """`orchestrate env list` elides the URL once it is long enough, which
     every real instance URL is -- so a full-string comparison never matches and
     a migration re-registers an environment it already has."""
-    from wheatear.connectors.orchestrate.adk_session import parse_env_list
+    from agent_liftoff.connectors.orchestrate.adk_session import parse_env_list
 
     envs = parse_env_list(ENV_LIST)
 
-    assert [e.name for e in envs] == ["wheatear-migration", "local"]
+    assert [e.name for e in envs] == ["agent_liftoff-migration", "local"]
     assert envs[0].truncated is True
     assert envs[0].active is True
     assert envs[0].matches(
@@ -201,7 +201,7 @@ def test_a_truncated_env_url_still_matches_its_instance():
 
 
 def test_an_untruncated_url_is_compared_exactly():
-    from wheatear.connectors.orchestrate.adk_session import parse_env_list
+    from agent_liftoff.connectors.orchestrate.adk_session import parse_env_list
 
     local = parse_env_list(ENV_LIST)[1]
 
@@ -211,18 +211,18 @@ def test_an_untruncated_url_is_compared_exactly():
 
 
 def test_activating_without_a_key_is_refused_rather_than_attempted():
-    from wheatear.connectors.orchestrate.adk_session import ensure_session
-    from wheatear.errors import WheatearError
+    from agent_liftoff.connectors.orchestrate.adk_session import ensure_session
+    from agent_liftoff.errors import LiftoffError
 
-    with pytest.raises(WheatearError, match="No API key"):
+    with pytest.raises(LiftoffError, match="No API key"):
         ensure_session("https://example", "", "orchestrate")
 
 
 def test_a_dead_token_after_activation_is_reported_not_assumed_good(monkeypatch):
     """Activating and then trusting it is how a migration writes every file and
     lands nothing."""
-    from wheatear.connectors.orchestrate import adk_session
-    from wheatear.errors import WheatearError
+    from agent_liftoff.connectors.orchestrate import adk_session
+    from agent_liftoff.errors import LiftoffError
 
     monkeypatch.setattr(adk_session, "list_environments", lambda cli: adk_session.parse_env_list(ENV_LIST))
     monkeypatch.setattr(
@@ -230,7 +230,7 @@ def test_a_dead_token_after_activation_is_reported_not_assumed_good(monkeypatch)
     )
     monkeypatch.setattr(adk_session, "session_is_live", lambda cli: False)
 
-    with pytest.raises(WheatearError, match="still does not work"):
+    with pytest.raises(LiftoffError, match="still does not work"):
         adk_session.ensure_session(
             "https://api.us-south.watson-orchestrate.cloud.ibm.com/instances/x", "key", "orchestrate"
         )

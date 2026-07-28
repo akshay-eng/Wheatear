@@ -7,10 +7,10 @@ rather than a failure -- because a wrong mapping compiles into code that runs
 over every record in the migration.
 """
 
-from wheatear.foundry import align, translator
-from wheatear.foundry.translator import FieldDecision, FieldDecisions
-from wheatear.ir.schema import IR_SPEC_VERSION
-from wheatear.foundry.types import (
+from agent_liftoff.foundry import align, translator
+from agent_liftoff.foundry.translator import FieldDecision, FieldDecisions
+from agent_liftoff.ir.schema import IR_SPEC_VERSION
+from agent_liftoff.foundry.types import (
     Direction,
     EntityKind,
     EntitySchema,
@@ -201,7 +201,7 @@ def test_a_required_target_with_no_source_is_flagged_as_blocking():
 
 
 def test_a_credential_field_is_flagged_as_needing_manual_setup():
-    """Wheatear never carries secrets across platforms. The connection they
+    """Agent Liftoff never carries secrets across platforms. The connection they
     belong to still has to be configured by hand on the target, and that is the
     thing a reviewer needs told.
     """
@@ -383,9 +383,9 @@ def test_the_reasoning_stages_import_nothing_that_does_io():
     import ast
     import inspect
 
-    from wheatear.foundry import cases, emit, guard, redact, shape
-    from wheatear.foundry import align as align_module
-    from wheatear.foundry import translator as translator_module
+    from agent_liftoff.foundry import cases, emit, guard, redact, shape
+    from agent_liftoff.foundry import align as align_module
+    from agent_liftoff.foundry import translator as translator_module
 
     forbidden = {"requests", "httpx", "urllib", "subprocess", "socket", "shutil", "tempfile"}
     for module in (shape, redact, align_module, translator_module, emit, cases, guard):
@@ -398,7 +398,7 @@ def test_the_reasoning_stages_import_nothing_that_does_io():
                 imported.add(node.module.split(".")[0])
         leaked = imported & forbidden
         assert not leaked, f"{module.__name__} imported I/O modules: {leaked}"
-        assert not any(name.startswith("wheatear.connectors") for name in imported)
+        assert not any(name.startswith("agent_liftoff.connectors") for name in imported)
 
 
 def test_the_spec_key_carries_the_schema_it_was_built_against():
@@ -423,7 +423,7 @@ def test_no_response_schema_uses_an_open_dict():
     against a real key, with the deterministic mappings quietly standing in.
     Closed shapes cost one conversion and work on every provider.
     """
-    from wheatear.foundry.engineer import DerivedFunctions, FullAdapter, ProposedCases
+    from agent_liftoff.foundry.engineer import DerivedFunctions, FullAdapter, ProposedCases
 
     def open_dicts(node, trail="") -> list[str]:
         found = []
@@ -447,7 +447,7 @@ def test_enum_pairs_become_the_value_map_the_generated_code_uses():
     """The wire shape is a list of pairs (closed, portable); the spec stores a
     dict. The conversion happens here so nothing downstream has to know why.
     """
-    from wheatear.foundry.translator import EnumPair
+    from agent_liftoff.foundry.translator import EnumPair
 
     source, target = _simple_pair()
     provider = FakeProvider(

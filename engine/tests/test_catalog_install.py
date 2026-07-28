@@ -14,9 +14,9 @@ import json
 
 import pytest
 
-from wheatear.connectors.orchestrate import catalog_install
-from wheatear.connectors.orchestrate.catalog_install import ConsoleSession, app_ids_in
-from wheatear.errors import RemoteAPIError, WheatearError
+from agent_liftoff.connectors.orchestrate import catalog_install
+from agent_liftoff.connectors.orchestrate.catalog_install import ConsoleSession, app_ids_in
+from agent_liftoff.errors import RemoteAPIError, LiftoffError
 
 INSTANCE = "https://api.us-south.watson-orchestrate.cloud.ibm.com/instances/abc123"
 
@@ -81,7 +81,7 @@ def session_with(responses, monkeypatch):
 def test_a_session_needs_a_cookie_because_the_api_key_cannot_reach_the_console(monkeypatch):
     monkeypatch.setattr(catalog_install.requests, "Session", lambda: FakeHTTP([]))
 
-    with pytest.raises(WheatearError, match="console session cookie"):
+    with pytest.raises(LiftoffError, match="console session cookie"):
         ConsoleSession(INSTANCE, "")
 
 
@@ -90,7 +90,7 @@ def test_a_cookie_without_the_fingerprint_is_refused(monkeypatch):
     is rejected, and failing here says why."""
     monkeypatch.setattr(catalog_install.requests, "Session", lambda: FakeHTTP([]))
 
-    with pytest.raises(WheatearError, match="__Secure-fgp"):
+    with pytest.raises(LiftoffError, match="__Secure-fgp"):
         ConsoleSession(INSTANCE, "foo=bar; baz=qux")
 
 

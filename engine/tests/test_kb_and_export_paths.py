@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import zipfile
 
-from wheatear.connectors.orchestrate.provisioner import resolve_kb_files
-from wheatear.wizard import _find_solution_root, _unpack_solution
+from agent_liftoff.connectors.orchestrate.provisioner import resolve_kb_files
+from agent_liftoff.wizard import _find_solution_root, _unpack_solution
 
 
 # --------------------------------------------------------------------------- #

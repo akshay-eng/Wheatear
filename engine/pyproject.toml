@@ -1,5 +1,5 @@
 [project]
-name = "wheatear"
+name = "agent-liftoff"
 version = "0.1.0"
 description = "Migrate AI agents and workflows between orchestration platforms"
 readme = "README.md"
@@ -32,17 +32,19 @@ copilot-studio = []   # PAC CLI handles auth; no Python deps needed
 dev = ["pytest>=8.0", "vcrpy>=6.0"]
 
 [project.scripts]
-wheatear = "wheatear.cli:main"
+agent-liftoff = "agent_liftoff.cli:main"
+# The old name keeps working for anyone with muscle memory or a script.
+liftoff = "agent_liftoff.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["wheatear*"]
+include = ["agent_liftoff*"]
 
 [tool.setuptools.package-data]
-wheatear = ["assets/*.png"]
+agent_liftoff = ["assets/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

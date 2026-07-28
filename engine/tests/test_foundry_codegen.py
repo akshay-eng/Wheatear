@@ -12,9 +12,9 @@ same guard before compiling it that the sandbox path does.
 
 import pytest
 
-from wheatear.foundry import cases, emit, guard, runtime
-from wheatear.foundry.shape import MISSING
-from wheatear.foundry.types import (
+from agent_liftoff.foundry import cases, emit, guard, runtime
+from agent_liftoff.foundry.shape import MISSING
+from agent_liftoff.foundry.types import (
     AdapterArtifact,
     EntityKind,
     EntitySchema,

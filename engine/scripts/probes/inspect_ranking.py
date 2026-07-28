@@ -7,12 +7,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from wheatear.connectors.orchestrate.catalog_client import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import (  # noqa: E402
     OrchestrateCatalogClient,
     to_artifacts,
 )
-from wheatear.ir.schema import ToolParameter, ToolRef  # noqa: E402
-from wheatear.pipeline.resolve import (  # noqa: E402
+from agent_liftoff.ir.schema import ToolParameter, ToolRef  # noqa: E402
+from agent_liftoff.pipeline.resolve import (  # noqa: E402
     _idf,
     _source_tokens,
     build_marketplace_catalog,

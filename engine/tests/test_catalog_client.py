@@ -12,7 +12,7 @@ import hashlib
 import pytest
 import requests
 
-from wheatear.connectors.orchestrate.catalog_client import (
+from agent_liftoff.connectors.orchestrate.catalog_client import (
     OrchestrateCatalogClient,
     _csrf_from_cookie,
     apply_detail,
@@ -21,7 +21,7 @@ from wheatear.connectors.orchestrate.catalog_client import (
     enrich_artifacts,
     to_artifacts,
 )
-from wheatear.errors import RemoteAPIError
+from agent_liftoff.errors import RemoteAPIError
 
 INSTANCE = "https://api.us-south.watson-orchestrate.cloud.ibm.com/instances/00000000-0000-0000"
 
@@ -171,7 +171,7 @@ def test_iam_rejection_explains_the_cookie_fallback(monkeypatch):
     """The whole point of the message: an IAM rejection here is expected, not a
     bug, and the user needs to know the next step rather than see a status."""
     monkeypatch.setattr(
-        "wheatear.connectors.orchestrate.rest_client.get_iam_token", lambda key: "tok"
+        "agent_liftoff.connectors.orchestrate.rest_client.get_iam_token", lambda key: "tok"
     )
     session = FakeSession([FakeResponse(401, None, "Unauthorized")])
     monkeypatch.setattr(requests, "Session", lambda: session)
@@ -185,7 +185,7 @@ def test_an_iam_500_is_reported_as_auth_not_as_an_outage(monkeypatch):
     to resolve tenant context, answering 500. Calling that a server fault would
     send someone chasing an outage that isn't happening."""
     monkeypatch.setattr(
-        "wheatear.connectors.orchestrate.rest_client.get_iam_token", lambda key: "tok"
+        "agent_liftoff.connectors.orchestrate.rest_client.get_iam_token", lambda key: "tok"
     )
     session = FakeSession([FakeResponse(500, None, '{"code":"WXO-PROXY-11076E"}')])
     monkeypatch.setattr(requests, "Session", lambda: session)

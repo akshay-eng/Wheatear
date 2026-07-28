@@ -7,9 +7,9 @@ runs before all of it, because the records being inferred over came off a live
 customer tenant.
 """
 
-from wheatear.foundry import redact, shape
-from wheatear.foundry.shape import MISSING, has_path, infer_fields, read_path, resolve_path
-from wheatear.ir.schema import Agent, DialogNode, Topic
+from agent_liftoff.foundry import redact, shape
+from agent_liftoff.foundry.shape import MISSING, has_path, infer_fields, read_path, resolve_path
+from agent_liftoff.ir.schema import Agent, DialogNode, Topic
 
 
 def _by_path(fields):

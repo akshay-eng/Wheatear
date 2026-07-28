@@ -1,6 +1,6 @@
 import pytest
 
-from wheatear.llm.factory import IMPLEMENTED_PROVIDERS, PROVIDER_KEY_ENV_DEFAULTS, build_provider
+from agent_liftoff.llm.factory import IMPLEMENTED_PROVIDERS, PROVIDER_KEY_ENV_DEFAULTS, build_provider
 
 
 def test_implemented_providers_have_a_key_env_default():
@@ -14,14 +14,14 @@ def test_anthropic_and_google_are_implemented():
 
 
 def test_build_provider_anthropic_does_not_make_a_network_call():
-    from wheatear.llm.anthropic_provider import AnthropicProvider
+    from agent_liftoff.llm.anthropic_provider import AnthropicProvider
 
     provider = build_provider("anthropic", "fake-key-for-construction-only")
     assert isinstance(provider, AnthropicProvider)
 
 
 def test_build_provider_google_does_not_make_a_network_call():
-    from wheatear.llm.google_provider import GoogleProvider
+    from agent_liftoff.llm.google_provider import GoogleProvider
 
     provider = build_provider("google", "fake-key-for-construction-only")
     assert isinstance(provider, GoogleProvider)

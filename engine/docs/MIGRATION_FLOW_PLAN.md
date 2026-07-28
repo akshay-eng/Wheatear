@@ -1,7 +1,7 @@
 # Complete migration flow plan: Copilot Studio / n8n → watsonx Orchestrate
 
 Status of this doc: an architecture + feasibility plan, grounded in the code
-that already exists (`wheatear/ir/schema.py`, `pipeline/`, `connectors/`,
+that already exists (`agent_liftoff/ir/schema.py`, `pipeline/`, `connectors/`,
 `model_matrix/`) and in live-verified facts about the Orchestrate API/ADK
 (2026-07-26). Read alongside `MIGRATION_DESIGN.md`, `ARCHITECTURE.md`,
 `model-matrix-research.md`, and the n8n corridor notes.
@@ -241,7 +241,7 @@ agents where judgment is needed, code where it isn't.
         │      │  chat UI = the human-in-the-loop        │
         │      │  (creds prompts, model picks, file      │
         │      │   paths all happen as a conversation)   │
-        │      ├── toolkit: "Wheatear Engine" (MCP)  ────┼──► deterministic
+        │      ├── toolkit: "Agent Liftoff Engine" (MCP)  ────┼──► deterministic
         │      │     parse / map / plan / deploy         │    Python engine
         │      │                                         │    (this repo) run
         │      │                                         │    as an MCP server
@@ -255,14 +255,14 @@ agents where judgment is needed, code where it isn't.
   *instructions* encode the phase sequence (§2→§6). Its *guidelines* encode the
   routing ("if a tool has no catalog match and is REST → call the synthesizer").
   This is itself an agent-migration-shaped agent, which is a nice demo.
-- **Wheatear Engine** (Orchestrate toolkit, `type: mcp`): wrap the deterministic
+- **Agent Liftoff Engine** (Orchestrate toolkit, `type: mcp`): wrap the deterministic
   engine (parse export, build IR, resolve MCP, plan deploy, execute deploy,
   poll-to-ready) as MCP tools. This is where Orchestrate calls *your* code. The
   deterministic core stays testable and outside any LLM.
 - **Migration Copilot** (Orchestrate external A2A agent = Pi): the five
   reasoning roles run here, as Pi subagents behind one A2A endpoint. Orchestrate
   delegates the judgment calls to it; it returns structured decisions the
-  Orchestrator applies via the Wheatear Engine toolkit.
+  Orchestrator applies via the Agent Liftoff Engine toolkit.
 
 Why this scores well for an IBM hackathon: the *product* (a migration) is
 itself an Orchestrate multi-agent workflow — native supervisor + MCP toolkit +
@@ -274,7 +274,7 @@ strong narrative.
 
 ### If you want it simpler for a first cut
 Collapse to: 1 Orchestrate native supervisor + 1 Pi external agent doing all
-reasoning + the Wheatear MCP toolkit. Split the Pi reasoning into 5 internal
+reasoning + the Agent Liftoff MCP toolkit. Split the Pi reasoning into 5 internal
 subagents only if a single agent's context gets unwieldy. Don't create 5
 separate Orchestrate agents for the 5 roles — that's more moving parts than the
 demo needs.

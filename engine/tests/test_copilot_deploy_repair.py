@@ -1,9 +1,9 @@
 """Copilot Studio push (PAC pack/import) + LLM-assisted repair of the output."""
 
-from wheatear.connectors.copilot_studio import deployer
-from wheatear.connectors.copilot_studio.exporter import export_agent
-from wheatear.ir.schema import Agent, KnowledgeRef
-from wheatear.repair import RepairPlan, FileFix, repair_solution
+from agent_liftoff.connectors.copilot_studio import deployer
+from agent_liftoff.connectors.copilot_studio.exporter import export_agent
+from agent_liftoff.ir.schema import Agent, KnowledgeRef
+from agent_liftoff.repair import RepairPlan, FileFix, repair_solution
 
 
 def _solution(tmp_path):

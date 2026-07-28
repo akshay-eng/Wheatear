@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.importer import import_agent
-from wheatear.eval.generate_cases import generate_cases
+from agent_liftoff.connectors.copilot_studio.importer import import_agent
+from agent_liftoff.eval.generate_cases import generate_cases
 
-FIXTURE_DIR = Path(__file__).parent.parent / "wheatear" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
+FIXTURE_DIR = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
 
 
 def test_generate_cases_uses_trigger_phrases_from_every_topic():
@@ -18,7 +18,7 @@ def test_generate_cases_uses_trigger_phrases_from_every_topic():
 
 
 def test_generate_cases_produces_nothing_for_topic_with_no_triggers():
-    from wheatear.ir.schema import Agent, Topic
+    from agent_liftoff.ir.schema import Agent, Topic
 
     agent = Agent(name="x", source_platform="copilot-studio", topics=[Topic(name="empty", trigger_phrases=[])])
 

@@ -2,11 +2,11 @@ from pathlib import Path
 
 import questionary
 
-from wheatear import wizard
-from wheatear.config import WheatearConfig
-from wheatear.ir.schema import Agent
-from wheatear.tui import flush_input
-from wheatear.wizard import (
+from agent_liftoff import wizard
+from agent_liftoff.config import LiftoffConfig
+from agent_liftoff.ir.schema import Agent
+from agent_liftoff.tui import flush_input
+from agent_liftoff.wizard import (
     BACK,
     _build_final_config,
     _export_for_target,
@@ -48,12 +48,12 @@ def test_suggest_output_path_is_a_sibling_directory():
 
 
 def test_resolve_key_env_keeps_saved_value_for_same_provider():
-    existing = WheatearConfig(llm_provider="anthropic", llm_key_env="MY_CUSTOM_KEY_VAR")
+    existing = LiftoffConfig(llm_provider="anthropic", llm_key_env="MY_CUSTOM_KEY_VAR")
     assert resolve_key_env_for_provider("anthropic", existing) == "MY_CUSTOM_KEY_VAR"
 
 
 def test_resolve_key_env_falls_back_to_default_when_provider_changes():
-    existing = WheatearConfig(llm_provider="anthropic", llm_key_env="MY_CUSTOM_KEY_VAR")
+    existing = LiftoffConfig(llm_provider="anthropic", llm_key_env="MY_CUSTOM_KEY_VAR")
     assert resolve_key_env_for_provider("openai", existing) == "OPENAI_API_KEY"
 
 
@@ -62,24 +62,24 @@ def test_resolve_key_env_falls_back_to_default_when_no_existing_config():
 
 
 def test_config_changed_true_when_no_saved_config():
-    assert config_changed(WheatearConfig(), None) is True
+    assert config_changed(LiftoffConfig(), None) is True
 
 
 def test_config_changed_false_when_identical():
-    cfg = WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
-    assert config_changed(cfg, WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")) is False
+    cfg = LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
+    assert config_changed(cfg, LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")) is False
 
 
 def test_config_changed_true_when_provider_differs():
-    cfg = WheatearConfig(llm_provider="openai", llm_key_env="OPENAI_API_KEY")
-    old = WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
+    cfg = LiftoffConfig(llm_provider="openai", llm_key_env="OPENAI_API_KEY")
+    old = LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
     assert config_changed(cfg, old) is True
 
 
 def test_resolve_key_env_deterministic_provider_needs_no_default_key():
     # "none" (deterministic) must not blow up looking for a default key env.
     assert resolve_key_env_for_provider("none", None) == ""
-    existing = WheatearConfig(llm_provider="anthropic", llm_key_env="MY_KEY")
+    existing = LiftoffConfig(llm_provider="anthropic", llm_key_env="MY_KEY")
     assert resolve_key_env_for_provider("none", existing) == "MY_KEY"
 
 
@@ -94,8 +94,8 @@ def test_build_final_config_preserves_completed_onboarding_flag():
     # Regression guard: every wizard path re-saves config after collecting LLM
     # settings, via this function. If it dropped onboarding_completed, the
     # onboarding screen would resurface on every single future launch.
-    llm_config = WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
-    saved = WheatearConfig(onboarding_completed=True)
+    llm_config = LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
+    saved = LiftoffConfig(onboarding_completed=True)
 
     result = _build_final_config(llm_config, None, saved)
 
@@ -103,7 +103,7 @@ def test_build_final_config_preserves_completed_onboarding_flag():
 
 
 def test_build_final_config_defaults_onboarding_false_with_no_saved_config():
-    llm_config = WheatearConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
+    llm_config = LiftoffConfig(llm_provider="anthropic", llm_key_env="ANTHROPIC_API_KEY")
 
     result = _build_final_config(llm_config, None, None)
 

@@ -8,7 +8,7 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from wheatear.connectors.orchestrate.catalog_client import OrchestrateCatalogClient  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import OrchestrateCatalogClient  # noqa: E402
 
 HAR = os.environ["WXO_HAR"]  # path to the console HAR capture
 har = json.load(open(HAR))

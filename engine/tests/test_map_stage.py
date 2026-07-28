@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.importer import import_agent
-from wheatear.pipeline.map import KNOWN_TOOL_MAPPINGS, map_agent
+from agent_liftoff.connectors.copilot_studio.importer import import_agent
+from agent_liftoff.pipeline.map import KNOWN_TOOL_MAPPINGS, map_agent
 
-FIXTURE_DIR = Path(__file__).parent.parent / "wheatear" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
+FIXTURE_DIR = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
 
 
 def test_map_flags_unknown_connector_for_review_not_a_guess():
@@ -44,7 +44,7 @@ def test_map_flags_connector_backed_knowledge_source_for_review():
     """
     solution_fixture = (
         Path(__file__).parent.parent
-        / "wheatear"
+        / "agent_liftoff"
         / "connectors"
         / "copilot_studio"
         / "fixtures"
@@ -81,8 +81,8 @@ def test_map_never_touches_an_llm():
 # ---------------------------------------------------------------------------
 
 def _connector_import(connector_id, **overrides):
-    from wheatear.connectors.base import ImportResult, RawToolRef, ToolParam
-    from wheatear.ir.schema import Agent
+    from agent_liftoff.connectors.base import ImportResult, RawToolRef, ToolParam
+    from agent_liftoff.ir.schema import Agent
 
     raw = RawToolRef(
         name="Get Record",
@@ -101,7 +101,7 @@ def _connector_import(connector_id, **overrides):
 
 
 def test_prebuilt_connector_is_mapped_as_an_openapi_bridge():
-    from wheatear.ir.schema import BridgeStrategy, ToolKind
+    from agent_liftoff.ir.schema import BridgeStrategy, ToolKind
 
     agent = map_agent(
         _connector_import("/providers/Microsoft.PowerApps/apis/shared_service-now"), "orchestrate"
@@ -120,7 +120,7 @@ def test_custom_connector_is_distinguished_from_a_prebuilt_one():
     percent-encoded (cr3ea-5f...). It matters because a custom connector's
     OpenAPI definition is downloadable from the source tenant.
     """
-    from wheatear.ir.schema import ToolKind
+    from agent_liftoff.ir.schema import ToolKind
 
     agent = map_agent(
         _connector_import("/providers/Microsoft.PowerApps/apis/shared_cr3ea-5fservice-20now-5f96f"),
@@ -152,8 +152,8 @@ def test_file_backed_knowledge_is_an_upload_not_a_reindex(tmp_path):
     """A document that shipped inside the export can actually be uploaded;
     a connector-backed source (SharePoint) needs real re-ingestion instead.
     """
-    from wheatear.connectors.base import ImportResult, RawKnowledgeRef
-    from wheatear.ir.schema import Agent, IngestPlan
+    from agent_liftoff.connectors.base import ImportResult, RawKnowledgeRef
+    from agent_liftoff.ir.schema import Agent, IngestPlan
 
     pdf = tmp_path / "Handbook.pdf"
     pdf.write_bytes(b"%PDF-1.4")
@@ -225,8 +225,8 @@ def test_map_resolver_miss_falls_back_to_manual_flag():
 
 
 def test_map_file_upload_knowledge_routes_to_upload_plan():
-    from wheatear.connectors.base import ImportResult, RawKnowledgeRef
-    from wheatear.ir.schema import Agent, IngestPlan
+    from agent_liftoff.connectors.base import ImportResult, RawKnowledgeRef
+    from agent_liftoff.ir.schema import Agent, IngestPlan
 
     ir = ImportResult(
         agent=Agent(name="a", source_platform="n8n"),

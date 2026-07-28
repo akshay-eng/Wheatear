@@ -1,4 +1,4 @@
-"""Drive `wheatear match-tools` end to end against the real Copilot export,
+"""Drive `agent_liftoff match-tools` end to end against the real Copilot export,
 with both HTTP layers replaced: installed tools by a small stand-in, the
 catalog by the actual response bodies captured from the live console.
 
@@ -71,12 +71,12 @@ class FakeSession:
 
 
 requests.Session = FakeSession
-sys.modules["wheatear.connectors.orchestrate.rest_client"].get_iam_token = lambda k: "tok"
+sys.modules["agent_liftoff.connectors.orchestrate.rest_client"].get_iam_token = lambda k: "tok"
 
 os.environ["IBMUrl"] = "https://api.us-south.watson-orchestrate.cloud.ibm.com/instances/00000000-0000-0000-0000-000000000000"
 os.environ["IBMKey"] = "fake"
 
-from wheatear.cli import main  # noqa: E402
+from agent_liftoff.cli import main  # noqa: E402
 
 result = CliRunner().invoke(
     main, ["match-tools", EXPORT, "--bot", "crd07_Candidateagent", "--no-llm", "--top", "4"]

@@ -1,6 +1,6 @@
-# Wheatear architecture — the IR hub
+# Agent Liftoff architecture — the IR hub
 
-Wheatear is a **hub-and-spoke** migrator, not a set of point-to-point
+Agent Liftoff is a **hub-and-spoke** migrator, not a set of point-to-point
 translators. Adding a platform costs one importer + one exporter, and every
 corridor (including the reverse of an existing one) routes through the same
 canonical IR. N platforms ⇒ 2N connectors, not N² translators.
@@ -38,7 +38,7 @@ topics. The AI is the *last mile* for gap-filling, never load-bearing.
   actually lives. A target with no exporter yet fails with a clear message.
 - **`pipeline/map.py`** — the *only* place directionality lives: resolution onto
   Orchestrate is a different problem from onto Copilot, chosen by target platform.
-- **`errors.py`** — one typed hierarchy (`WheatearError` + subtypes) so every
+- **`errors.py`** — one typed hierarchy (`LiftoffError` + subtypes) so every
   expected failure is an actionable message, never a raw traceback. The CLI
   converts them to clean `ClickException`s.
 

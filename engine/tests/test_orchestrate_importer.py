@@ -1,13 +1,13 @@
 """Tests for the Orchestrate → IR importer.
 
 Covers both native Orchestrate YAML format (apiVersion/metadata/spec)
-and Wheatear's own exporter format (spec_version/flat structure).
+and Agent Liftoff's own exporter format (spec_version/flat structure).
 """
 
 import pytest
 import yaml
 
-from wheatear.connectors.orchestrate.importer import detect_format, import_agent
+from agent_liftoff.connectors.orchestrate.importer import detect_format, import_agent
 
 
 # ---------------------------------------------------------------------------
@@ -34,10 +34,10 @@ spec:
 """
 
 # ---------------------------------------------------------------------------
-# Fixtures — Wheatear exporter format
+# Fixtures — Agent Liftoff exporter format
 # ---------------------------------------------------------------------------
 
-WHEATEAR_YAML = """\
+AGENT_LIFTOFF_YAML = """\
 spec_version: v1
 kind: native
 name: hr-assistant
@@ -63,9 +63,9 @@ def test_detect_format_native(tmp_path):
     assert detect_format(f) == "orchestrate"
 
 
-def test_detect_format_wheatear(tmp_path):
+def test_detect_format_agent_liftoff(tmp_path):
     f = tmp_path / "agent.yaml"
-    f.write_text(WHEATEAR_YAML)
+    f.write_text(AGENT_LIFTOFF_YAML)
     assert detect_format(f) == "orchestrate"
 
 
@@ -134,33 +134,33 @@ def test_import_native_llm_recorded_as_model_hint(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# import_agent — Wheatear format
+# import_agent — Agent Liftoff format
 # ---------------------------------------------------------------------------
 
-def test_import_wheatear_agent_name(tmp_path):
+def test_import_agent_liftoff_agent_name(tmp_path):
     f = tmp_path / "agent.yaml"
-    f.write_text(WHEATEAR_YAML)
+    f.write_text(AGENT_LIFTOFF_YAML)
     result = import_agent(f)
     assert result.agent.name == "hr-assistant"
 
 
-def test_import_wheatear_existing_instructions(tmp_path):
+def test_import_agent_liftoff_existing_instructions(tmp_path):
     f = tmp_path / "agent.yaml"
-    f.write_text(WHEATEAR_YAML)
+    f.write_text(AGENT_LIFTOFF_YAML)
     result = import_agent(f)
     assert "HR assistant" in (result.agent.existing_instructions or "")
 
 
-def test_import_wheatear_tools(tmp_path):
+def test_import_agent_liftoff_tools(tmp_path):
     f = tmp_path / "agent.yaml"
-    f.write_text(WHEATEAR_YAML)
+    f.write_text(AGENT_LIFTOFF_YAML)
     result = import_agent(f)
     assert set(result.raw_tool_refs) == {"benefits-lookup", "policy-search"}
 
 
-def test_import_wheatear_knowledge_base(tmp_path):
+def test_import_agent_liftoff_knowledge_base(tmp_path):
     f = tmp_path / "agent.yaml"
-    f.write_text(WHEATEAR_YAML)
+    f.write_text(AGENT_LIFTOFF_YAML)
     result = import_agent(f)
     assert len(result.raw_knowledge_refs) == 1
     assert result.raw_knowledge_refs[0].name == "hr-policies-kb"
@@ -171,7 +171,7 @@ def test_import_wheatear_knowledge_base(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_import_from_directory(tmp_path):
-    (tmp_path / "agent.yaml").write_text(WHEATEAR_YAML)
+    (tmp_path / "agent.yaml").write_text(AGENT_LIFTOFF_YAML)
     result = import_agent(tmp_path)
     assert result.agent.name == "hr-assistant"
 

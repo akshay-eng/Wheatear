@@ -9,7 +9,7 @@ import sys
 from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from wheatear.connectors.orchestrate.catalog_client import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import (  # noqa: E402
     OrchestrateCatalogClient,
     to_artifacts,
 )

@@ -2,7 +2,7 @@
 
 The security property this file exists to hold is narrow and worth stating:
 the secret a person types goes into a request body and nowhere else. Not onto a
-command line, where `ps` and shell history would have it; not into a Wheatear
+command line, where `ps` and shell history would have it; not into an Agent Liftoff
 file; not into a review manifest. The ADK exposes these as CLI flags, and the
 whole reason `provisioning` calls the controller in-process is to avoid them.
 """
@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from wheatear.connectors.orchestrate import provisioning
-from wheatear.connectors.orchestrate.provisioning import CredentialRequest
-from wheatear.errors import WheatearError
+from agent_liftoff.connectors.orchestrate import provisioning
+from agent_liftoff.connectors.orchestrate.provisioning import CredentialRequest
+from agent_liftoff.errors import LiftoffError
 
 
 class Controller:
@@ -44,7 +44,7 @@ def test_a_member_connection_is_never_given_a_stored_secret(controller):
     on one defeats the setting that made the migration faithful."""
     request = CredentialRequest(app_id="servicenow_ibm", kind="basic_auth", preference="member")
 
-    with pytest.raises(WheatearError, match="member credentials"):
+    with pytest.raises(LiftoffError, match="member credentials"):
         provisioning.set_credentials(request, {"username": "u", "password": "p"})
 
     assert not [c for c in controller.calls if c[0] == "credentials"]
@@ -98,14 +98,14 @@ def test_both_environments_are_configured_not_just_draft(controller, monkeypatch
 
 
 def test_an_unknown_auth_kind_is_refused_rather_than_guessed(controller):
-    with pytest.raises(WheatearError, match="not an auth kind"):
+    with pytest.raises(LiftoffError, match="not an auth kind"):
         provisioning.configure(CredentialRequest(app_id="x", kind="telepathy"))
 
 
 def test_empty_credentials_are_refused(controller):
     request = CredentialRequest(app_id="snow", kind="basic_auth", preference="team")
 
-    with pytest.raises(WheatearError, match="No credential values"):
+    with pytest.raises(LiftoffError, match="No credential values"):
         provisioning.set_credentials(request, {})
 
 
@@ -239,7 +239,7 @@ def test_an_adk_process_exit_becomes_an_error_not_a_dead_wizard(controller):
 
     controller.add_configuration = exits
 
-    with pytest.raises(WheatearError, match="session has usually expired"):
+    with pytest.raises(LiftoffError, match="session has usually expired"):
         provisioning.configure(CredentialRequest(app_id="snow", kind="bearer_token"))
 
 
@@ -252,7 +252,7 @@ def test_a_credential_failure_never_repeats_the_secret(controller):
     controller.add_credentials = exits
     request = CredentialRequest(app_id="snow", kind="basic_auth", preference="team")
 
-    with pytest.raises(WheatearError) as caught:
+    with pytest.raises(LiftoffError) as caught:
         provisioning.set_credentials(request, {"username": "svc", "password": "hunter2"})
 
     assert "hunter2" not in str(caught.value)

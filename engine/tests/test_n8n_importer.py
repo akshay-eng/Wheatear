@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from wheatear.connectors.n8n import graph, importer
-from wheatear.connectors.orchestrate.catalog import connector_resolver
-from wheatear.pipeline.map import map_agent
+from agent_liftoff.connectors.n8n import graph, importer
+from agent_liftoff.connectors.orchestrate.catalog import connector_resolver
+from agent_liftoff.pipeline.map import map_agent
 
-FIXTURES = Path(__file__).parent.parent / "wheatear" / "connectors" / "n8n" / "fixtures"
+FIXTURES = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "n8n" / "fixtures"
 
 
 # --- graph.py ---------------------------------------------------------------

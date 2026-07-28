@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from wheatear.connectors.copilot_studio import solution_importer as si
-from wheatear.pipeline.map import map_agent
+from agent_liftoff.connectors.copilot_studio import solution_importer as si
+from agent_liftoff.pipeline.map import map_agent
 
 _CANDIDATES = [
     Path("/Users/akshay/Documents/AgentMigrate/migration_assets/Wheateardemo_1_0_0_1_managed"),

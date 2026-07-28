@@ -1,7 +1,7 @@
 """Multi-agent collaborator-graph discovery and leaf-first ordering."""
 
-from wheatear.ir.schema import Agent, AgentRef
-from wheatear.workflow import assemble_workflow, reachable_ids
+from agent_liftoff.ir.schema import Agent, AgentRef
+from agent_liftoff.workflow import assemble_workflow, reachable_ids
 
 
 def _agent(name, collaborators=()):

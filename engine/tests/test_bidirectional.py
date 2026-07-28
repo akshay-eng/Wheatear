@@ -9,14 +9,14 @@ dropped.
 import pytest
 import yaml
 
-from wheatear.connectors.copilot_studio import exporter as cp_exp
-from wheatear.connectors.copilot_studio import importer as cp_imp
-from wheatear.connectors.orchestrate import exporter as orch_exp
-from wheatear.connectors.orchestrate import importer as orch_imp
-from wheatear.connectors.registry import load_exporter, load_importer
-from wheatear.errors import MapError, UnsupportedCorridorError
-from wheatear.ir.schema import Agent, AgentRef, KnowledgeRef, ToolRef, Workflow
-from wheatear.pipeline.map import map_agent
+from agent_liftoff.connectors.copilot_studio import exporter as cp_exp
+from agent_liftoff.connectors.copilot_studio import importer as cp_imp
+from agent_liftoff.connectors.orchestrate import exporter as orch_exp
+from agent_liftoff.connectors.orchestrate import importer as orch_imp
+from agent_liftoff.connectors.registry import load_exporter, load_importer
+from agent_liftoff.errors import MapError, UnsupportedCorridorError
+from agent_liftoff.ir.schema import Agent, AgentRef, KnowledgeRef, ToolRef, Workflow
+from agent_liftoff.pipeline.map import map_agent
 
 
 def _agent(**kw) -> Agent:
@@ -43,7 +43,7 @@ def test_copilot_export_round_trips_name_and_instructions(tmp_path):
 
 
 def test_copilot_export_folds_guidelines_into_instructions(tmp_path):
-    from wheatear.ir.schema import Guideline
+    from agent_liftoff.ir.schema import Guideline
 
     agent = _agent(
         instructions="Base prompt.",
@@ -125,7 +125,7 @@ def test_workflow_migration_order_handles_cycles_without_hanging():
 
 
 def test_map_rejects_unknown_target_platform():
-    from wheatear.connectors.base import ImportResult
+    from agent_liftoff.connectors.base import ImportResult
 
     with pytest.raises(MapError):
         map_agent(ImportResult(agent=_agent()), target_platform="vertex-ai")

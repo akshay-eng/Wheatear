@@ -11,7 +11,7 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-from wheatear.connectors.orchestrate.rest_client import get_iam_token  # noqa: E402
+from agent_liftoff.connectors.orchestrate.rest_client import get_iam_token  # noqa: E402
 
 url = os.environ["IBMUrl"].rstrip("/")
 ART = f"{url}/v1/orchestrate/catalog/artifacts"

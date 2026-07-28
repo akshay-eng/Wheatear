@@ -7,10 +7,10 @@ directly by capturing what gets passed to questionary.select.
 
 import questionary
 
-from wheatear import onboarding
-from wheatear.config import WheatearConfig
-from wheatear.onboarding import needs_onboarding
-from wheatear.syscheck import DependencyStatus
+from agent_liftoff import onboarding
+from agent_liftoff.config import LiftoffConfig
+from agent_liftoff.onboarding import needs_onboarding
+from agent_liftoff.syscheck import DependencyStatus
 
 
 def test_needs_onboarding_true_when_no_config():
@@ -18,11 +18,11 @@ def test_needs_onboarding_true_when_no_config():
 
 
 def test_needs_onboarding_true_when_never_completed():
-    assert needs_onboarding(WheatearConfig(onboarding_completed=False)) is True
+    assert needs_onboarding(LiftoffConfig(onboarding_completed=False)) is True
 
 
 def test_needs_onboarding_false_once_completed():
-    assert needs_onboarding(WheatearConfig(onboarding_completed=True)) is False
+    assert needs_onboarding(LiftoffConfig(onboarding_completed=True)) is False
 
 
 def test_hard_gate_removes_continue_bypass_while_required_item_missing(monkeypatch):

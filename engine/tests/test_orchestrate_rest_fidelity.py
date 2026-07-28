@@ -7,9 +7,9 @@ the high-value data that format carries.
 
 import json
 
-from wheatear.connectors.orchestrate.importer import import_agent
-from wheatear.ir.schema import BridgeStrategy, ToolKind
-from wheatear.pipeline.map import map_agent
+from agent_liftoff.connectors.orchestrate.importer import import_agent
+from agent_liftoff.ir.schema import BridgeStrategy, ToolKind
+from agent_liftoff.pipeline.map import map_agent
 
 REST_EXPORT = {
     "agent": {
@@ -77,7 +77,7 @@ def test_mcp_tools_map_as_portable_not_review(tmp_path):
 
 def test_mcp_endpoints_surface_in_orchestrate_review_manifest(tmp_path):
     import yaml as _yaml
-    from wheatear.connectors.orchestrate.exporter import export_agent
+    from agent_liftoff.connectors.orchestrate.exporter import export_agent
 
     imp = import_agent(_write(tmp_path))
     agent = map_agent(imp, target_platform="orchestrate")
@@ -91,7 +91,7 @@ def test_mcp_endpoints_surface_in_orchestrate_review_manifest(tmp_path):
 
 def test_individual_tool_names_are_captured_and_surfaced(tmp_path):
     import yaml as _yaml
-    from wheatear.connectors.orchestrate.exporter import export_agent
+    from agent_liftoff.connectors.orchestrate.exporter import export_agent
 
     imp = import_agent(_write(tmp_path))
     # captured from the toolkit's current_tools
@@ -108,7 +108,7 @@ def test_individual_tool_names_are_captured_and_surfaced(tmp_path):
 
 def test_style_and_guidelines_survive_orchestrate_export(tmp_path):
     import yaml as _yaml
-    from wheatear.connectors.orchestrate.exporter import export_agent
+    from agent_liftoff.connectors.orchestrate.exporter import export_agent
 
     imp = import_agent(_write(tmp_path))
     agent = map_agent(imp, target_platform="orchestrate")

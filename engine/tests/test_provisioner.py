@@ -1,7 +1,7 @@
 """Provisioner unit tests with a fake REST client (no network)."""
 
-from wheatear.connectors.orchestrate import provisioner as p
-from wheatear.connectors.orchestrate.provisioner import (
+from agent_liftoff.connectors.orchestrate import provisioner as p
+from agent_liftoff.connectors.orchestrate.provisioner import (
     provision_and_deploy,
     resolve_kb_files,
     resolve_tool_ids,
@@ -74,9 +74,9 @@ def test_reuse_existing_mcp_toolkit_by_server_url():
 
 
 def test_provision_deploys_leaf_first_with_collaborators():
-    from wheatear.connectors.base import ImportResult, RawToolRef
-    from wheatear.ir.schema import Agent, AgentRef
-    from wheatear.workflow import assemble_workflow
+    from agent_liftoff.connectors.base import ImportResult, RawToolRef
+    from agent_liftoff.ir.schema import Agent, AgentRef
+    from agent_liftoff.workflow import assemble_workflow
 
     child = Agent(name="HR Agent", source_platform="n8n", instructions="You are HR.")
     parent = Agent(
@@ -102,9 +102,9 @@ def test_provision_deploys_leaf_first_with_collaborators():
 
 
 def test_provision_skips_agents_not_selected():
-    from wheatear.connectors.base import ImportResult
-    from wheatear.ir.schema import Agent
-    from wheatear.workflow import assemble_workflow
+    from agent_liftoff.connectors.base import ImportResult
+    from agent_liftoff.ir.schema import Agent
+    from agent_liftoff.workflow import assemble_workflow
 
     a1 = Agent(name="Keep", source_platform="n8n", instructions="x")
     a2 = Agent(name="Drop", source_platform="n8n", instructions="y")

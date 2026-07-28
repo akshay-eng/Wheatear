@@ -1,5 +1,5 @@
-from wheatear.ir.schema import Agent, ConnectionRef, ToolRef
-from wheatear.pipeline.validate import validate_agent
+from agent_liftoff.ir.schema import Agent, ConnectionRef, ToolRef
+from agent_liftoff.pipeline.validate import validate_agent
 
 
 def make_agent(**overrides) -> Agent:

@@ -1,4 +1,4 @@
-from wheatear import syscheck
+from agent_liftoff import syscheck
 
 
 def test_check_all_returns_three_base_checks():
@@ -228,7 +228,7 @@ def test_check_dotnet_missing_reports_no_fix_without_bash_or_curl(monkeypatch):
 
 
 def test_check_pac_reports_dotnet_prerequisite_when_dotnet_missing(monkeypatch):
-    from wheatear.connectors.copilot_studio import pac_client
+    from agent_liftoff.connectors.copilot_studio import pac_client
 
     monkeypatch.setattr(pac_client, "check", lambda: (False, ""))
     monkeypatch.setattr(syscheck.shutil, "which", lambda name: None)
@@ -239,7 +239,7 @@ def test_check_pac_reports_dotnet_prerequisite_when_dotnet_missing(monkeypatch):
 
 
 def test_check_pac_offers_fix_when_dotnet_present(monkeypatch):
-    from wheatear.connectors.copilot_studio import pac_client
+    from agent_liftoff.connectors.copilot_studio import pac_client
 
     monkeypatch.setattr(pac_client, "check", lambda: (False, ""))
     monkeypatch.setattr(syscheck.shutil, "which", lambda name: "/usr/bin/dotnet" if name == "dotnet" else None)

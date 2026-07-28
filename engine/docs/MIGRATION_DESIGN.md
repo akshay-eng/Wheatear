@@ -2,7 +2,7 @@
 
 Status: design reference. Grounds the `Map` / `Translate` stages and the connector
 catalog. Derived from a side-by-side audit of both GUIs (see the object model below)
-plus the existing IR in `wheatear/ir/schema.py`.
+plus the existing IR in `agent_liftoff/ir/schema.py`.
 
 ---
 
@@ -107,7 +107,7 @@ and *almost all the Bridged/Manual rows are tools + knowledge*. That's the whole
 
 ---
 
-## 4. IR changes this implies (`wheatear/ir/schema.py`)
+## 4. IR changes this implies (`agent_liftoff/ir/schema.py`)
 
 Today the IR has `tools / knowledge / connections` plus `topics`. To carry the matrix,
 extend it (additive, keeps existing importers working):

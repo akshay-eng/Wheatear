@@ -14,7 +14,7 @@ engineering project or vaporware, not to be sold to.
 
 ## Product Purpose
 
-Wheatear is an open-source accelerator for migrating AI agents and workflows between
+Agent Liftoff is an open-source accelerator for migrating AI agents and workflows between
 orchestration platforms, so a vendor or platform switch becomes a migration instead of a
 full rebuild from scratch. The landing page exists to explain the problem (platform
 fragmentation and lock-in are a present cost, not a future one), the architecture (a
@@ -48,7 +48,7 @@ an engineer explaining a system to another engineer, not a marketing deck.
   beats hype every time there's a choice between them.
 - One narrative thread, not a feature wall. Sections build a case in sequence; they aren't
   a disconnected grid of feature cards.
-- Identity comes from the Northern Wheatear's actual migration story (Alaska to East
+- Identity comes from the Northern Agent Liftoff's actual migration story (Alaska to East
   Africa, ~14,500 km, the longest migration relative to body size of any songbird) used
   precisely — not generic nature/bird decoration.
 

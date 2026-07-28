@@ -26,13 +26,13 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from wheatear.connectors.orchestrate.catalog_client import (  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import (  # noqa: E402
     COOKIE_ENV,
     OrchestrateCatalogClient,
     enrich_artifacts,
     to_artifacts,
 )
-from wheatear.errors import WheatearError  # noqa: E402
+from agent_liftoff.errors import LiftoffError  # noqa: E402
 
 
 def _provenance(instance_url: str) -> str:
@@ -145,7 +145,7 @@ def main() -> int:
         client = OrchestrateCatalogClient(instance_url, **auth)
         print(f"reading {client.base} …", file=sys.stderr)
         records = client.list_installable(include_agents=args.include_agents)
-    except WheatearError as exc:
+    except LiftoffError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

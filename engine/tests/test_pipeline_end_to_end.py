@@ -2,14 +2,14 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from wheatear.cli import main
-from wheatear.connectors.copilot_studio.importer import import_agent
-from wheatear.connectors.orchestrate.exporter import export_agent
-from wheatear.pipeline.map import map_agent
-from wheatear.pipeline.translate import TranslationOutput, translate_agent
-from wheatear.pipeline.validate import validate_agent
+from agent_liftoff.cli import main
+from agent_liftoff.connectors.copilot_studio.importer import import_agent
+from agent_liftoff.connectors.orchestrate.exporter import export_agent
+from agent_liftoff.pipeline.map import map_agent
+from agent_liftoff.pipeline.translate import TranslationOutput, translate_agent
+from agent_liftoff.pipeline.validate import validate_agent
 
-FIXTURE_DIR = Path(__file__).parent.parent / "wheatear" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
+FIXTURE_DIR = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
 
 
 class FakeProvider:
@@ -26,7 +26,7 @@ class FakeProvider:
 
 
 def test_full_pipeline_copilot_studio_to_orchestrate(tmp_path):
-    """Mirrors what `wheatear migrate` does internally, with a fake LLM
+    """Mirrors what `agent_liftoff migrate` does internally, with a fake LLM
     provider standing in for Translate so this runs with no network access.
     """
     import_result = import_agent(FIXTURE_DIR)

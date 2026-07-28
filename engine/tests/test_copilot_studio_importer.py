@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from wheatear.connectors.copilot_studio.importer import import_agent
-from wheatear.ir.schema import DialogNodeKind
+from agent_liftoff.connectors.copilot_studio.importer import import_agent
+from agent_liftoff.ir.schema import DialogNodeKind
 
-FIXTURE_DIR = Path(__file__).parent.parent / "wheatear" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
+FIXTURE_DIR = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
 
 
 def test_import_reads_agent_name_from_root_file():

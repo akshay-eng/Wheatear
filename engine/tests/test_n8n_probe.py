@@ -1,6 +1,6 @@
 """The n8n foundry probe: one workflow document -> per-kind record sets.
 
-n8n is the first platform Wheatear probes where the entities are not rows. The
+n8n is the first platform Agent Liftoff probes where the entities are not rows. The
 tests here pin the split, because a mis-split does not fail loudly -- it
 produces a corpus that describes the wrong thing and an adapter compiled
 against it.
@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import json
 
-from wheatear.foundry.conformance import declared_versions
-from wheatear.foundry.probes.base import ProbeContext
-from wheatear.foundry.probes.n8n import N8nExportScan, load_workflows, split_by_kind
-from wheatear.foundry.types import EntityKind, GapReason
+from agent_liftoff.foundry.conformance import declared_versions
+from agent_liftoff.foundry.probes.base import ProbeContext
+from agent_liftoff.foundry.probes.n8n import N8nExportScan, load_workflows, split_by_kind
+from agent_liftoff.foundry.types import EntityKind, GapReason
 
 WORKFLOW = {
     "id": "wf1",

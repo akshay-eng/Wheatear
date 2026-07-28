@@ -1,6 +1,6 @@
 """Running generated code, and loading it later.
 
-The sandbox is the one place in Wheatear where code that was written minutes
+The sandbox is the one place in Agent Liftoff where code that was written minutes
 ago by a model is executed, so the containment flags are asserted directly
 rather than assumed -- a future edit that quietly drops `--network none` should
 fail a test, not a customer.
@@ -16,9 +16,9 @@ import json
 
 import pytest
 
-from wheatear.foundry import runtime, sandbox
-from wheatear.foundry.sandbox import DockerSandbox, SubprocessSandbox, build_bootstrap, parse_report
-from wheatear.foundry.types import (
+from agent_liftoff.foundry import runtime, sandbox
+from agent_liftoff.foundry.sandbox import DockerSandbox, SubprocessSandbox, build_bootstrap, parse_report
+from agent_liftoff.foundry.types import (
     AdapterArtifact,
     AdapterKey,
     Direction,

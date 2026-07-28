@@ -1,4 +1,4 @@
-# wheatear
+# agent_liftoff
 
 Migrate AI agents and workflows between orchestration platforms. First corridor:
 Microsoft Copilot Studio → IBM watsonx Orchestrate.
@@ -20,27 +20,27 @@ LLM providers are optional extras — install whichever you'll actually use
 ### Interactive (recommended for humans)
 
 ```bash
-wheatear
+agent_liftoff
 ```
 
 Asks for the export directory, the output path, and the LLM provider/API key, then
 runs the full pipeline with live progress. LLM provider choice is remembered in
-`~/.config/wheatear/config.json` between runs — the API key itself is never written
+`~/.config/agent_liftoff/config.json` between runs — the API key itself is never written
 to disk, only the name of the environment variable that holds it.
 
 ### Scripted / CI
 
 ```bash
-# 1. Export the source agent yourself (Wheatear doesn't shell out to `pac`):
+# 1. Export the source agent yourself (Agent Liftoff doesn't shell out to `pac`):
 pac copilot clone --bot <bot-id> --output-dir ./my-agent-clone
 
 # 2. Sanity-check the export (recognizes both a `pac copilot clone` workspace
 #    and a Dataverse solution export)
-wheatear extract ./my-agent-clone
+agent_liftoff extract ./my-agent-clone
 
 # 3. Run the full pipeline (needs an LLM key for the Translate stage)
 export ANTHROPIC_API_KEY=sk-...   # or GEMINI_API_KEY with --llm-provider google
-wheatear migrate --from copilot-studio --to orchestrate ./my-agent-clone ./out
+agent_liftoff migrate --from copilot-studio --to orchestrate ./my-agent-clone ./out
 
 # 4. Review ./out/review-manifest.yaml (if present) before importing
 orchestrate agents import -f ./out/agent.yaml

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from wheatear.connectors.copilot_studio import pac_client
+from agent_liftoff.connectors.copilot_studio import pac_client
 
 # `pac auth list` on 1.52.x with two profiles, the second active.
 TWO_PROFILES = """

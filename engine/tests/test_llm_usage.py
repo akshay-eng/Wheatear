@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from wheatear.llm.usage import LLMCall, ObservedProvider, Usage, UsageMeter, read_usage
+from agent_liftoff.llm.usage import LLMCall, ObservedProvider, Usage, UsageMeter, read_usage
 
 
 class ToolMatch(BaseModel):

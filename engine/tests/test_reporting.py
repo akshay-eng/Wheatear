@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from wheatear import reporting
-from wheatear.reporting import (
+from agent_liftoff import reporting
+from agent_liftoff.reporting import (
     AgentFact,
     MigrationFacts,
     ToolFact,

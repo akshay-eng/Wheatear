@@ -1,7 +1,7 @@
 import yaml
 
-from wheatear.connectors.orchestrate.exporter import export_agent
-from wheatear.ir.schema import Agent, ConnectionRef, KnowledgeRef, ToolRef
+from agent_liftoff.connectors.orchestrate.exporter import export_agent
+from agent_liftoff.ir.schema import Agent, ConnectionRef, KnowledgeRef, ToolRef
 
 
 def make_agent(**overrides) -> Agent:
@@ -145,7 +145,7 @@ def test_all_of_an_agents_documents_go_into_one_knowledge_base(tmp_path):
     whole agent otherwise ("Max number of knowledge-base exceeded"). One base
     holding three documents answers questions identically to three holding one.
     """
-    from wheatear.connectors.orchestrate.exporter import knowledge_base_specs
+    from agent_liftoff.connectors.orchestrate.exporter import knowledge_base_specs
 
     agent = make_agent(
         knowledge=[
@@ -169,7 +169,7 @@ def test_a_knowledge_base_is_never_created_without_a_description(tmp_path):
     """The service rejects it with nothing more useful than "An Unexpected
     Error Occurred" -- verified live, by bisection.
     """
-    from wheatear.connectors.orchestrate.exporter import knowledge_base_specs
+    from agent_liftoff.connectors.orchestrate.exporter import knowledge_base_specs
 
     agent = make_agent(knowledge=[KnowledgeRef(ref="handbook", file_path="/tmp/a.pdf")])
     assert knowledge_base_specs(agent)[0]["description"]
@@ -179,7 +179,7 @@ def test_a_knowledge_source_with_no_documents_creates_nothing(tmp_path):
     """A base named after a SharePoint site nobody ingested looks migrated and
     answers nothing.
     """
-    from wheatear.connectors.orchestrate.exporter import knowledge_base_specs
+    from agent_liftoff.connectors.orchestrate.exporter import knowledge_base_specs
 
     agent = make_agent(knowledge=[KnowledgeRef(ref="sharepoint_site")])
     assert knowledge_base_specs(agent) == []
@@ -211,7 +211,7 @@ def test_a_style_the_target_does_know_is_kept(tmp_path):
 
 
 def _snow_tool(**overrides):
-    from wheatear.ir.schema import BridgeStrategy, ToolParameter
+    from agent_liftoff.ir.schema import BridgeStrategy, ToolParameter
 
     defaults = dict(
         ref="SNOWMCPALL:get_record",
@@ -234,7 +234,7 @@ def test_what_the_source_knew_about_a_tool_becomes_a_guideline():
     source platform had written around it. An agent that arrives without that
     makes exactly the mistakes the text was written to prevent.
     """
-    from wheatear.pipeline.resolve import carry_tool_context
+    from agent_liftoff.pipeline.resolve import carry_tool_context
 
     guidelines = carry_tool_context(make_agent(tools=[_snow_tool()]))
     assert len(guidelines) == 1
@@ -247,22 +247,22 @@ def test_a_tool_that_is_not_on_the_target_gets_no_guideline():
     """There is no reference to bind guidance to, and a guideline naming a
     tool the agent cannot call is noise on every turn.
     """
-    from wheatear.ir.schema import BridgeStrategy
-    from wheatear.pipeline.resolve import carry_tool_context
+    from agent_liftoff.ir.schema import BridgeStrategy
+    from agent_liftoff.pipeline.resolve import carry_tool_context
 
     tool = _snow_tool(bridge=BridgeStrategy.CATALOG_INSTALL)
     assert carry_tool_context(make_agent(tools=[tool])) == []
 
 
 def test_a_tool_the_source_said_nothing_useful_about_gets_no_guideline():
-    from wheatear.pipeline.resolve import carry_tool_context
+    from agent_liftoff.pipeline.resolve import carry_tool_context
 
     tool = _snow_tool(description="Get record.", inputs=[])
     assert carry_tool_context(make_agent(tools=[tool])) == []
 
 
 def test_carried_guidelines_reach_the_exported_agent(tmp_path):
-    from wheatear.pipeline.resolve import carry_tool_context
+    from agent_liftoff.pipeline.resolve import carry_tool_context
 
     agent = make_agent(tools=[_snow_tool()])
     agent.guidelines.extend(carry_tool_context(agent))
@@ -279,19 +279,19 @@ def test_nothing_that_reaches_the_target_names_the_tool_that_moved_it(tmp_path):
         knowledge=[KnowledgeRef(ref="handbook", file_path="/tmp/a.pdf")],
     )
     agent.guidelines.extend(__import__(
-        "wheatear.pipeline.resolve", fromlist=["carry_tool_context"]
+        "agent_liftoff.pipeline.resolve", fromlist=["carry_tool_context"]
     ).carry_tool_context(agent))
     result = export_agent(agent, tmp_path)
-    from wheatear.connectors.orchestrate.exporter import knowledge_base_specs
+    from agent_liftoff.connectors.orchestrate.exporter import knowledge_base_specs
 
     landed = [result.agent_path.read_text(), yaml.safe_dump(knowledge_base_specs(agent))]
     for text in landed:
-        assert "wheatear" not in text.lower(), text
+        assert "agent_liftoff" not in text.lower(), text
 
 
 def test_a_generated_description_is_marked_for_review():
     """It is a starting point, not a fact about the agent."""
-    from wheatear.pipeline.translate import AgentDescription, describe_agent
+    from agent_liftoff.pipeline.translate import AgentDescription, describe_agent
 
     class Provider:
         def generate_structured(self, prompt, schema):
@@ -306,7 +306,7 @@ def test_a_generated_description_is_marked_for_review():
 
 
 def test_an_agent_that_already_has_a_description_keeps_it():
-    from wheatear.pipeline.translate import describe_agent
+    from agent_liftoff.pipeline.translate import describe_agent
 
     class Provider:
         def generate_structured(self, prompt, schema):
@@ -318,7 +318,7 @@ def test_an_agent_that_already_has_a_description_keeps_it():
 
 def test_a_provider_that_fails_leaves_the_agent_importable():
     """No description is a gap to report, not a failed migration."""
-    from wheatear.pipeline.translate import describe_agent
+    from agent_liftoff.pipeline.translate import describe_agent
 
     class Provider:
         def generate_structured(self, prompt, schema):
@@ -333,8 +333,8 @@ def test_two_source_tools_landing_on_one_target_tool_are_named_once():
     """Copilot's `GetRecord` and `ListRecords` both resolve to `get_records`.
     Naming it twice claims the agent has two tools when it has one.
     """
-    from wheatear.connectors.orchestrate.exporter import importable_tools
-    from wheatear.ir.schema import Agent, BridgeStrategy, ToolRef
+    from agent_liftoff.connectors.orchestrate.exporter import importable_tools
+    from agent_liftoff.ir.schema import Agent, BridgeStrategy, ToolRef
 
     agent = Agent(
         name="ITSM",
@@ -359,8 +359,8 @@ def test_a_migrated_agent_lands_on_the_recommended_style_not_a_deprecated_one():
     the whole decision -- and defaulting to a style the vendor is steering
     people off is choosing the wrong one for every migration.
     """
-    from wheatear.connectors.orchestrate.exporter import agent_style
-    from wheatear.ir.schema import Agent
+    from agent_liftoff.connectors.orchestrate.exporter import agent_style
+    from agent_liftoff.ir.schema import Agent
 
     def styled(value):
         return Agent(name="a", source_platform="copilot-studio", agent_style=value)

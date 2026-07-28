@@ -1,8 +1,8 @@
-from wheatear.model_matrix import ModelProfile, recommend
-from wheatear.model_matrix.resolver import resolve
-from wheatear.model_matrix.scorer import build_recommendation
-from wheatear.model_matrix.target_sources.base import TargetModelSource
-from wheatear.model_matrix.types import CostTier
+from agent_liftoff.model_matrix import ModelProfile, recommend
+from agent_liftoff.model_matrix.resolver import resolve
+from agent_liftoff.model_matrix.scorer import build_recommendation
+from agent_liftoff.model_matrix.target_sources.base import TargetModelSource
+from agent_liftoff.model_matrix.types import CostTier
 
 
 class _FakeTargetSource:
@@ -108,7 +108,7 @@ def test_recommend_with_no_available_targets_returns_empty_ranked_list():
 def test_target_model_source_protocol_is_structurally_satisfied():
     # OrchestrateModelSource and any future implementation just need the one
     # method -- no inheritance required, Protocol is structural.
-    from wheatear.model_matrix.target_sources.orchestrate import OrchestrateModelSource
+    from agent_liftoff.model_matrix.target_sources.orchestrate import OrchestrateModelSource
 
     source: TargetModelSource = OrchestrateModelSource()
     assert hasattr(source, "list_available_models")

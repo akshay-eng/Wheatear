@@ -8,10 +8,10 @@ differently -- `Get Record`/`sysid` versus `SNOWMCPALL:get_record`/`sys_id` --
 which is exactly what no string comparison resolves.
 """
 
-from wheatear.connectors.base import ImportResult, RawToolRef, ToolParam
-from wheatear.ir.schema import Agent, BridgeStrategy, ToolParameter, ToolRef
-from wheatear.pipeline.map import map_agent
-from wheatear.pipeline.resolve import (
+from agent_liftoff.connectors.base import ImportResult, RawToolRef, ToolParam
+from agent_liftoff.ir.schema import Agent, BridgeStrategy, ToolParameter, ToolRef
+from agent_liftoff.pipeline.map import map_agent
+from agent_liftoff.pipeline.resolve import (
     CatalogTool,
     ToolMatch,
     build_catalog,
@@ -308,8 +308,8 @@ def test_end_to_end_from_a_copilot_connector_action():
 # yet a usable one, and these tests pin that difference down.
 # ---------------------------------------------------------------------------
 
-from wheatear.connectors.orchestrate.catalog_client import to_artifacts  # noqa: E402
-from wheatear.pipeline.resolve import build_marketplace_catalog  # noqa: E402
+from agent_liftoff.connectors.orchestrate.catalog_client import to_artifacts  # noqa: E402
+from agent_liftoff.pipeline.resolve import build_marketplace_catalog  # noqa: E402
 
 RAW_MARKETPLACE = [
     {
@@ -407,7 +407,7 @@ def test_both_pools_appear_in_the_one_shortlist_the_model_judges():
 
 def test_the_shortlist_says_which_candidates_need_installing():
     """The difference is a real cost the model has to weigh."""
-    from wheatear.pipeline.resolve import rank_everything
+    from agent_liftoff.pipeline.resolve import rank_everything
 
     tool = _source_tool()
     candidates = rank_everything(tool, build_catalog(RAW_CATALOG), _marketplace())
@@ -595,7 +595,7 @@ def test_resolve_imports_nothing_that_does_io():
     import ast
     import inspect
 
-    import wheatear.pipeline.resolve as resolve_module
+    import agent_liftoff.pipeline.resolve as resolve_module
 
     tree = ast.parse(inspect.getsource(resolve_module))
     imported: set[str] = set()
@@ -607,7 +607,7 @@ def test_resolve_imports_nothing_that_does_io():
 
     forbidden = {"requests", "httpx", "urllib", "subprocess", "socket", "pathlib", "os"}
     assert not (imported & forbidden), f"Resolve imported I/O modules: {imported & forbidden}"
-    assert not any(m.startswith("wheatear.connectors") for m in imported)
+    assert not any(m.startswith("agent_liftoff.connectors") for m in imported)
 
 
 # ---------------------------------------------------------------------------
@@ -620,7 +620,7 @@ def test_plurals_fold_onto_their_singular():
     """`List Records` has to reach `get_records`, and `Get Record` has to reach
     it too. Before this, `record` and `records` were unrelated tokens and the
     highest-signal term in the query simply didn't match."""
-    from wheatear.pipeline.resolve import _tokens
+    from agent_liftoff.pipeline.resolve import _tokens
 
     assert _tokens("Get Records") == _tokens("get_record")
     assert "record" in _tokens("get_records")
@@ -629,7 +629,7 @@ def test_plurals_fold_onto_their_singular():
 
 def test_singularising_does_not_corrupt_words_that_end_in_s():
     """Over-stemming is the worse failure: it matches unrelated tools."""
-    from wheatear.pipeline.resolve import _tokens
+    from agent_liftoff.pipeline.resolve import _tokens
 
     for word in ("status", "address", "analysis", "sys_id", "https"):
         assert word.split("_")[0] in " ".join(_tokens(word)) or _tokens(word)
@@ -642,7 +642,7 @@ def test_verbs_are_kept_because_they_are_what_distinguishes_tools():
     """`create_record`, `get_record` and `update_record` differ by the verb and
     nothing else. Dropping verbs as stopwords made a read operation rank a
     destructive write first."""
-    from wheatear.pipeline.resolve import _tokens
+    from agent_liftoff.pipeline.resolve import _tokens
 
     assert "get" in _tokens("get_record")
     assert "create" in _tokens("create_a_record")
@@ -738,7 +738,7 @@ def test_no_installed_candidate_can_do_the_job_leaves_the_catalog_answer():
 def test_an_instance_suffixed_name_is_recognised_as_the_catalog_tool():
     """Orchestrate renames a catalog tool when it lands: `get_records` arrives
     as `get_records_568d4`. The suffix is bookkeeping, not capability."""
-    from wheatear.pipeline.resolve import installed_copy_of
+    from agent_liftoff.pipeline.resolve import installed_copy_of
 
     assert installed_copy_of("get_records_568d4", "get_records")
     assert installed_copy_of("create_a_ticket_59106", "create_a_ticket")
@@ -748,7 +748,7 @@ def test_an_instance_suffixed_name_is_recognised_as_the_catalog_tool():
 def test_a_differently_named_tool_is_not_mistaken_for_the_catalog_one():
     """Answering a lookup with a tool that does a different job is the one
     outcome worse than answering with none."""
-    from wheatear.pipeline.resolve import installed_copy_of
+    from agent_liftoff.pipeline.resolve import installed_copy_of
 
     assert not installed_copy_of("get_record_abc12", "get_records")
     assert not installed_copy_of("SNOWMCPALL:get_record", "get_records")
@@ -763,8 +763,8 @@ def test_the_installed_copy_wins_over_being_told_to_install_it_again(monkeypatch
     it as a weaker installed tool, resolves to the catalog entry, and tells
     them to install the tool they already installed.
     """
-    from wheatear.ir.schema import BridgeStrategy, ToolRef
-    from wheatear.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
+    from agent_liftoff.ir.schema import BridgeStrategy, ToolRef
+    from agent_liftoff.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
 
     installed = [CatalogTool(ref="get_records_568d4", description="Get records", origin="installed")]
     catalog = [
@@ -796,8 +796,8 @@ def test_the_installed_copy_wins_over_being_told_to_install_it_again(monkeypatch
 
 def test_a_genuinely_absent_catalog_tool_still_asks_to_be_installed():
     """The recognition must not swallow the real case it was added beside."""
-    from wheatear.ir.schema import BridgeStrategy, ToolRef
-    from wheatear.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
+    from agent_liftoff.ir.schema import BridgeStrategy, ToolRef
+    from agent_liftoff.pipeline.resolve import CatalogTool, ToolMatch, _resolve_one
 
     installed = [CatalogTool(ref="send_email", description="Send an email", origin="installed")]
     catalog = [

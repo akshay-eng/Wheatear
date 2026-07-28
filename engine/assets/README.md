@@ -21,10 +21,10 @@ on the way in here. See `foundry/shipping.py`.
 
 ## Refreshing
 
-    wheatear foundry probe copilot-studio --export <unpacked-solution> --offline
-    wheatear foundry probe orchestrate
-    wheatear foundry corridor copilot-studio orchestrate
-    wheatear foundry ship
+    agent-liftoff foundry probe copilot-studio --export <unpacked-solution> --offline
+    agent-liftoff foundry probe orchestrate
+    agent-liftoff foundry corridor copilot-studio orchestrate
+    agent-liftoff foundry ship
 
 The first three build into the local store; `ship` strips and copies here.
 Adapters are keyed on the platform versions they were compiled against, so a

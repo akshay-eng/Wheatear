@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.importer import import_agent
-from wheatear.pipeline.translate import TranslationOutput, build_prompt, translate_agent
+from agent_liftoff.connectors.copilot_studio.importer import import_agent
+from agent_liftoff.pipeline.translate import TranslationOutput, build_prompt, translate_agent
 
-FIXTURE_DIR = Path(__file__).parent.parent / "wheatear" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
+FIXTURE_DIR = Path(__file__).parent.parent / "agent_liftoff" / "connectors" / "copilot_studio" / "fixtures" / "sample_agent"
 
 
 class FakeProvider:
@@ -69,7 +69,7 @@ def test_translate_agent_flags_low_confidence_for_downstream_review():
 
 SOLUTION_FIXTURE_DIR = (
     Path(__file__).parent.parent
-    / "wheatear"
+    / "agent_liftoff"
     / "connectors"
     / "copilot_studio"
     / "fixtures"

@@ -8,8 +8,8 @@ toolkit, which silently changes what every agent already using it does.
 
 import json
 
-from wheatear.connectors.copilot_studio.mcp_scan import find_mcp_servers
-from wheatear.connectors.orchestrate.mcp_sync import normalise, plan_servers
+from agent_liftoff.connectors.copilot_studio.mcp_scan import find_mcp_servers
+from agent_liftoff.connectors.orchestrate.mcp_sync import normalise, plan_servers
 
 
 def _connector(tmp_path, name, *, protocol="mcp-streamable-1.0", host="mcp.example.com",

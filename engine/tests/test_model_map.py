@@ -1,4 +1,4 @@
-from wheatear.model_map import DEFAULT_TIER, ModelTier, classify_tier, resolve_target_model
+from agent_liftoff.model_map import DEFAULT_TIER, ModelTier, classify_tier, resolve_target_model
 
 
 def test_gpt5_class_source_maps_to_frontier_tier():

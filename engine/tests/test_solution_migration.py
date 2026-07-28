@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.mcp_scan import McpServer
-from wheatear.connectors.orchestrate.connections import AppConnection
-from wheatear.connectors.orchestrate.mcp_sync import plan_servers
-from wheatear.foundry.store import FoundryStore
-from wheatear.ir.schema import Agent, AgentRef, BridgeStrategy, ToolRef
-from wheatear.pipeline.solution_migration import (
+from agent_liftoff.connectors.copilot_studio.mcp_scan import McpServer
+from agent_liftoff.connectors.orchestrate.connections import AppConnection
+from agent_liftoff.connectors.orchestrate.mcp_sync import plan_servers
+from agent_liftoff.foundry.store import FoundryStore
+from agent_liftoff.ir.schema import Agent, AgentRef, BridgeStrategy, ToolRef
+from agent_liftoff.pipeline.solution_migration import (
     adapters_ready,
     pending_installs,
     still_missing,
@@ -332,7 +332,7 @@ def test_a_taken_name_is_numbered_rather_than_overwritten():
 
 def test_a_fresh_machine_is_ready_from_the_shipped_adapters(tmp_path: Path):
     """The point of shipping a build. A store that has never been probed picks
-    up the adapters that travel with Wheatear and can migrate immediately --
+    up the adapters that travel with Agent Liftoff and can migrate immediately --
     no probe, no model call, no container.
     """
     ready, reason = adapters_ready(FoundryStore(tmp_path))
@@ -346,7 +346,7 @@ def test_a_fresh_machine_is_ready_from_the_shipped_adapters(tmp_path: Path):
 def test_a_machine_with_no_shipped_assets_says_what_to_run(tmp_path, monkeypatch):
     """Checked up front: a missing adapter stops the first stage outright, and
     finding out after the user picked an environment and four agents is worse."""
-    from wheatear.pipeline import solution_migration
+    from agent_liftoff.pipeline import solution_migration
 
     monkeypatch.setattr(solution_migration, "ensure_shipped", lambda store, report=None: 0)
 
@@ -361,14 +361,14 @@ def test_a_broken_assets_tree_is_reported_rather_than_looking_empty(tmp_path):
     only one of them is a bug in this repository. The first version returned 0
     on any exception, so a corpus that failed to validate was indistinguishable
     from an assets tree that was not there."""
-    from wheatear.pipeline.solution_migration import ensure_shipped
+    from agent_liftoff.pipeline.solution_migration import ensure_shipped
 
     said = []
     broken = tmp_path / "assets"
     (broken / "copilot-studio" / "corpora").mkdir(parents=True)
     (broken / "copilot-studio" / "corpora" / "x.json").write_text("{not json")
 
-    import wheatear.assets as assets_mod
+    import agent_liftoff.assets as assets_mod
 
     original = assets_mod.ASSETS
     try:
@@ -419,7 +419,7 @@ def test_nothing_is_pending_when_every_tool_landed():
 def test_the_watcher_recognises_the_suffixed_name_the_install_actually_creates():
     """The bug this would otherwise have: `get_records` never appears under
     that name, so an equality check would wait forever."""
-    from wheatear.pipeline.solution_migration import PendingInstall
+    from agent_liftoff.pipeline.solution_migration import PendingInstall
 
     pending = [PendingInstall("get_records", "Get Records in ServiceNow", ["ITSM_Agent"])]
 
@@ -429,7 +429,7 @@ def test_the_watcher_recognises_the_suffixed_name_the_install_actually_creates()
 
 
 def test_a_similarly_named_tool_does_not_end_the_wait():
-    from wheatear.pipeline.solution_migration import PendingInstall
+    from agent_liftoff.pipeline.solution_migration import PendingInstall
 
     pending = [PendingInstall("get_records", "Get Records in ServiceNow", ["ITSM_Agent"])]
 
@@ -438,7 +438,7 @@ def test_a_similarly_named_tool_does_not_end_the_wait():
 
 def test_a_failed_poll_reads_as_nothing_installed_rather_than_raising():
     """A dropped connection mid-wait is a retry, not the end of the migration."""
-    from wheatear.pipeline.solution_migration import installed_tool_names
+    from agent_liftoff.pipeline.solution_migration import installed_tool_names
 
     class Broken:
         def list_all_tools(self):
