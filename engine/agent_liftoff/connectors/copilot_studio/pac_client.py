@@ -213,6 +213,19 @@ _AUTH_INDEX_RE = re.compile(r"^\s*\[?(\d+)\]?\s*(\*?)")
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 _URL_RE = re.compile(r"https?://\S+")
 
+# Punctuation that can end an English sentence but not a URL. PAC prints URLs
+# in tables (followed by whitespace) and in prose -- "Could not connect to the
+# Dataverse organization at https://contoso.crm8.dynamics.com/." -- and `\S+`
+# happily swallows that full stop. Harmless while everything works, because the
+# table forms dominate; it surfaces exactly when PAC is reporting an error,
+# which is the worst moment to show somebody a URL that is subtly not theirs.
+_URL_TRAILING = ".,;:!?)]}>\"'"
+
+
+def clean_url(value: str) -> str:
+    """A matched URL with sentence punctuation trimmed off the end."""
+    return value.rstrip(_URL_TRAILING)
+
 
 def parse_auth_list(output: str) -> list[AuthProfile]:
     """Parse `pac auth list` output into profiles.
@@ -238,7 +251,7 @@ def parse_auth_list(output: str) -> list[AuthProfile]:
                 index=int(index_match.group(1)),
                 active=active,
                 user=email.group(0) if email else "",
-                environment=url.group(0) if url else "",
+                environment=clean_url(url.group(0)) if url else "",
             )
         )
     # Exactly one profile and no marker at all still means that profile is the
@@ -429,7 +442,7 @@ def parse_env_list(output: str) -> list[EnvironmentInfo]:
                 index=int(lead.group(1)) if lead and lead.group(1) else len(environments) + 1,
                 display_name=name,
                 environment_id=guid.group(0) if guid else "",
-                url=url.group(0).rstrip(",") if url else "",
+                url=clean_url(url.group(0)) if url else "",
                 unique_name=tail.split()[0] if tail and env_type != tail else (tail or ""),
                 env_type=env_type,
                 active=bool(lead and lead.group(2)),
@@ -478,7 +491,7 @@ def current_environment() -> str:
     combined = result.stdout + result.stderr
     url = _URL_RE.search(combined)
     if url:
-        return url.group(0).rstrip(",")
+        return clean_url(url.group(0))
     for line in combined.splitlines():
         if "environment" in line.lower() and ":" in line:
             return line.split(":", 1)[1].strip()
