@@ -2297,6 +2297,11 @@ def _copilot_studio_wizard(source: str, target: str) -> bool:
                 "Use a solution export I already have (.zip or unpacked folder)",
                 value="file",
             ),
+            questionary.Choice(
+                "Connect with a browser token — no PAC CLI "
+                "(use this if PAC cannot sign in to your tenant)",
+                value="token",
+            ),
             questionary.Choice("◀ Back", value="back"),
         ],
     ).ask()
@@ -2304,7 +2309,180 @@ def _copilot_studio_wizard(source: str, target: str) -> bool:
         return True
     if mode == "file":
         return _copilot_studio_export_wizard(target)
+    if mode == "token":
+        return _copilot_studio_token_wizard(target)
     return _copilot_studio_auto_wizard(source, target)
+
+
+def _ask_dataverse_token() -> tuple[str, str] | None:
+    """The environment URL and a bearer token for it, from a HAR or by hand.
+
+    Offered because the PAC CLI is a single point of failure an enterprise
+    tenant can close: Conditional Access refusing a Dataverse token to the
+    device code flow produces `AADSTS135010` and there is no client-side fix,
+    while the same person can open the maker portal in a browser and see their
+    solutions perfectly well. This is that browser session, borrowed.
+
+    Reading a HAR is offered first because the alternative is talking somebody
+    through DevTools and having them paste a 2,000-character string without
+    truncating it.
+    """
+    from agent_liftoff.connectors.copilot_studio import dataverse_client as dv
+
+    console.print(
+        Panel(
+            "Agent Liftoff needs a Dataverse access token for your Power Platform\n"
+            "environment. It is used in memory for this migration and never written\n"
+            "to disk.\n\n"
+            "[bold]To capture one:[/bold]\n"
+            "  1. Open [bold]make.powerapps.com[/bold] in your browser and pick the environment\n"
+            "  2. Open DevTools → [bold]Network[/bold], then click [bold]Solutions[/bold]\n"
+            "  3. Either export the capture as a [bold].har[/bold] file, or copy the\n"
+            "     [bold]Authorization[/bold] header (without the leading 'Bearer ') from any\n"
+            "     request to [bold]*.dynamics.com[/bold]\n\n"
+            "[dim]Tokens last about an hour, which is longer than a migration takes.[/dim]",
+            title="[bold]Power Platform — browser token[/bold]",
+            border_style="cyan",
+        )
+    )
+    flush_input()
+    how = questionary.select(
+        "How would you like to supply it?",
+        choices=[
+            questionary.Choice("Read it from a .har file I exported", value="har"),
+            questionary.Choice("Paste the token", value="paste"),
+            questionary.Choice("◀ Back", value="back"),
+        ],
+    ).ask()
+    if _cancelled(how) or how == "back":
+        return None
+
+    environment = ""
+    token = ""
+    if how == "har":
+        raw = questionary.path("Path to the .har file:").ask()
+        if _cancelled(raw) or not str(raw).strip():
+            return None
+        try:
+            with console.status("  Reading the capture…", spinner="dots"):
+                found = dv.tokens_from_har(Path(str(raw).strip()).expanduser())
+        except dv.DataverseError as exc:
+            console.print(f"[bold red]{escape(str(exc))}[/bold red]")
+            return None
+        if not found:
+            console.print(
+                "[yellow]No Dataverse token in that capture.[/yellow] It needs to include a "
+                "request to your *.dynamics.com environment — click Solutions in the maker "
+                "portal while recording."
+            )
+            return None
+        if len(found) == 1:
+            environment, token = next(iter(found.items()))
+            console.print(f"  [green]✓[/green]  token found for [cyan]{escape(environment)}[/cyan]")
+        else:
+            flush_input()
+            environment = questionary.select(
+                "That capture covers more than one environment. Which one?",
+                choices=sorted(found),
+            ).ask()
+            if _cancelled(environment):
+                return None
+            token = found[environment]
+    else:
+        raw_url = questionary.text(
+            "Environment URL:", default="https://yourorg.crm.dynamics.com"
+        ).ask()
+        if _cancelled(raw_url) or not str(raw_url).strip():
+            return None
+        environment = str(raw_url).strip().rstrip("/")
+        token = questionary.password("Paste the bearer token:").ask()
+        if _cancelled(token) or not str(token).strip():
+            return None
+        token = str(token).strip()
+        if token.lower().startswith("bearer "):
+            token = token.split(None, 1)[1]
+
+    try:
+        with console.status("  Checking the token against that environment…", spinner="dots"):
+            me = dv.whoami(environment, token)
+    except dv.DataverseError as exc:
+        console.print(f"[bold red]{escape(str(exc))}[/bold red]")
+        return None
+    console.print(
+        f"  [green]✓[/green]  accepted — org [dim]{escape(str(me.get('OrganizationId', ''))[:8])}[/dim]"
+    )
+    return environment, token
+
+
+def _copilot_studio_token_wizard(target: str) -> bool:
+    """Migrate straight from Dataverse, with no PAC CLI involved."""
+    from agent_liftoff.connectors.copilot_studio import dataverse_client as dv
+
+    saved_config = load_config()
+
+    _step_header(1, 4, "Target credentials — watsonx Orchestrate")
+    orchestrate_creds: OrchestrateCredentials | None = None
+    if target == "orchestrate":
+        orchestrate_creds = ask_orchestrate_credentials(saved_config)
+
+    _step_header(2, 4, "Connect to Power Platform")
+    supplied = _ask_dataverse_token()
+    if supplied is None:
+        return True
+    environment, token = supplied
+
+    _step_header(3, 4, "Choose a solution")
+    try:
+        with console.status("  Listing solutions…", spinner="dots"):
+            solutions = dv.list_solutions(environment, token)
+    except dv.DataverseError as exc:
+        console.print(f"[bold red]{escape(str(exc))}[/bold red]")
+        return True
+    if not solutions:
+        console.print("[yellow]That environment has no visible solutions.[/yellow]")
+        return True
+
+    chosen = _multiselect_menu(
+        "Select the solution to migrate:",
+        solutions,
+        label_fn=lambda s: s.label(),
+        key_fn=lambda s: s.unique_name,
+        noun="solution",
+    )
+    if not chosen:
+        return True
+
+    work_root = Path.cwd() / "copilot-migration"
+    downloads = work_root / "_downloaded"
+    downloads.mkdir(parents=True, exist_ok=True)
+
+    _step_header(4, 4, "Export and migrate")
+    store = _foundry_store(saved_config)
+    provider = _corridor_provider(saved_config or LiftoffConfig())
+
+    for solution in chosen:
+        try:
+            with console.status(f"  Exporting {solution.unique_name}…", spinner="dots"):
+                archive = dv.export_solution(environment, token, solution.unique_name)
+        except dv.DataverseError as exc:
+            # One solution the operator cannot read must not end the run; the
+            # others are still migratable and the reason is worth printing.
+            console.print(f"  [red]✗[/red]  {escape(solution.unique_name)}: {escape(str(exc)[:160])}")
+            continue
+
+        zip_path = downloads / f"{solution.unique_name}.zip"
+        zip_path.write_bytes(archive)
+        console.print(
+            f"  [green]✓[/green]  exported [bold]{escape(solution.friendly_name)}[/bold] "
+            f"({len(archive):,} bytes) → [dim]{escape(str(zip_path))}[/dim]"
+        )
+        sol_dir = _unpack_solution(zip_path, work_root / "_unpacked" / solution.unique_name)
+        report = _run_export_solution_migration(
+            sol_dir, solution.friendly_name, set(), store, orchestrate_creds, provider, work_root
+        )
+        if report is not None:
+            _finish_migration(report, orchestrate_creds, work_root, source_platform="copilot-studio")
+    return False
 
 
 def _unpack_solution(archive: Path, destination: Path) -> Path:
