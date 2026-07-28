@@ -23,7 +23,7 @@ from pathlib import Path
 from wheatear.connectors.n8n.http_tools import HttpToolSpec, group_by_host
 from wheatear.connectors.orchestrate import provisioning
 from wheatear.connectors.orchestrate.http_tool_build import (
-    KEY_AUTH_HEADER,
+    DEFAULT_AUTH_KIND,
     KEY_BASE_URL,
     app_id_for,
     compiles,
@@ -46,7 +46,13 @@ class HostGroup:
     # Set once the user has answered; kept separate from the specs so an
     # unanswered group is obviously unanswered rather than silently defaulting.
     base_url: str | None = None
-    auth_header: str | None = None
+    # Which of Orchestrate's auth kinds the operator chose, and the field values
+    # it needs (`token`, or `username`/`password`, ...). The kind decides the
+    # generated code, so it is part of the plan rather than a deploy detail.
+    auth_kind: str = DEFAULT_AUTH_KIND
+    secrets: dict[str, str] = field(default_factory=dict)
+    # `member` means each end user signs in and no secret is stored here.
+    preference: str = "team"
 
     @property
     def tool_names(self) -> list[str]:
@@ -78,27 +84,25 @@ def plan(specs: list[HttpToolSpec]) -> list[HostGroup]:
 
 
 def ensure_credentials(group: HostGroup, log=lambda _m: None) -> list[str]:
-    """Create the connection and store the base URL + auth header on it.
+    """Create the connection, point it at the host and store the credential.
 
-    `team` preference, not `member`: these are service credentials belonging to
-    the migration, not to whoever happens to chat with the agent. A member
-    connection would prompt every end user for a ServiceNow bearer token, which
-    is not a question any of them can answer.
+    Configured in every environment, not just `draft`. A deployed agent runs
+    against `live`, so a draft-only connection produces a tool that works in
+    the builder's preview and fails after deploy -- see `provisioning.provision`.
     """
     request = provisioning.CredentialRequest(
         app_id=group.app_id,
-        kind="key_value_creds",
-        preference="team",
-        server_url=group.base_url,
+        kind=group.auth_kind,
+        preference=group.preference,
+        server_url=group.base_url or group.host,
         tools=group.tool_names,
     )
-    secrets = {KEY_BASE_URL: group.base_url or group.host}
-    # An unauthenticated endpoint is legitimate -- storing an empty header
-    # would make the tool send `Authorization: ` and get a 401 that looks like
-    # a wrong secret rather than a missing one.
-    if group.auth_header:
-        secrets[KEY_AUTH_HEADER] = group.auth_header
-    done = provisioning.provision(request, secrets)
+    secrets = dict(group.secrets)
+    if group.auth_kind == "key_value_creds":
+        # key_value has no `url` field of its own, so the endpoint travels as
+        # a key and the generated code reads it from there.
+        secrets.setdefault(KEY_BASE_URL, group.base_url or group.host)
+    done = provisioning.provision(request, secrets or None)
     for line in done:
         log(line)
     return done
@@ -116,14 +120,14 @@ def import_tools(
     the migration's other artifacts rather than to a temp dir, so a failed
     import leaves behind exactly the file that failed for somebody to read.
     """
-    source = render_module(group.specs, group.app_id)
+    source = render_module(group.specs, group.app_id, group.auth_kind)
     ok, why = compiles(source)
     if not ok:
         log(f"generated tool module is not valid Python ({why}) — not imported")
         return False, []
 
     module_path = destination / f"{group.app_id}_tools.py"
-    write_module(group.specs, group.app_id, module_path)
+    write_module(group.specs, group.app_id, module_path, group.auth_kind)
     requirements = destination / "requirements.txt"
     requirements.write_text(REQUIREMENTS)
     log(f"wrote {module_path.name} ({len(group.specs)} tool(s))")

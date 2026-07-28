@@ -33,7 +33,7 @@ at all -- which is why `set_credentials` is skipped for one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from wheatear.errors import WheatearError
@@ -311,23 +311,57 @@ def set_credentials(request: CredentialRequest, secrets: dict[str, str]) -> None
         ) from exc
 
 
-def provision(request: CredentialRequest, secrets: dict[str, str] | None = None) -> list[str]:
-    """Do all of it, and say what was done.
+# Orchestrate keeps a connection's configuration per environment, and an agent
+# runs against `live` once deployed while the builder's preview uses `draft`.
+# Configuring one and not the other produces the worst possible split: the tool
+# works while you are testing it and fails the moment it is deployed, with a
+# KeyError naming a credential field rather than the environment that has none.
+ENVIRONMENTS: tuple[str, ...] = ("draft", "live")
+
+
+def provision(
+    request: CredentialRequest,
+    secrets: dict[str, str] | None = None,
+    environments: tuple[str, ...] = ENVIRONMENTS,
+) -> list[str]:
+    """Do all of it, in every environment, and say what was done.
 
     Returns a list of past-tense statements for the caller to show. Deliberately
     not a boolean: "created the connection, configured it for per-user sign-in"
     is what somebody needs to read back, and a caller cannot reconstruct that
     from True.
+
+    Both environments by default. A connection configured only in `draft` is
+    invisible to the deployed agent that needs it -- observed live as
+    `KeyError: 'base_url'` from inside a migrated tool, hours after a migration
+    that reported success -- and nothing about a migration implies "for the
+    preview only".
     """
     done: list[str] = []
     if ensure_connection(request.app_id):
         done.append(f"created connection `{request.app_id}`")
-    configure(request)
+
+    configured: list[str] = []
+    credentialled: list[str] = []
+    for environment in environments:
+        # The request carries one environment; each pass targets its own so a
+        # failure in `live` cannot be mistaken for a failure in `draft`.
+        scoped = replace(request, environment=environment)
+        configure(scoped)
+        configured.append(environment)
+        if secrets and not scoped.prompts_the_user:
+            set_credentials(scoped, secrets)
+            credentialled.append(environment)
+
     who = "each user signs in themselves" if request.prompts_the_user else "a shared credential"
-    done.append(f"configured `{request.app_id}` for {request.kind} ({who})")
-    if secrets and not request.prompts_the_user:
-        set_credentials(request, secrets)
-        done.append(f"stored the credential on `{request.app_id}` ({request.environment})")
+    done.append(
+        f"configured `{request.app_id}` for {request.kind} ({who}) "
+        f"in {' and '.join(configured)}"
+    )
+    if credentialled:
+        done.append(
+            f"stored the credential on `{request.app_id}` in {' and '.join(credentialled)}"
+        )
     return done
 
 

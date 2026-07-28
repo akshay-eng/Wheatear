@@ -184,11 +184,34 @@ def test_generated_signature_matches_the_source_signature():
 
 def test_endpoint_is_read_from_the_connection_not_baked_in():
     """A migrated tool nearly always points somewhere new."""
-    source = build.render_module([_spec_with_template()], "app")
-    assert "connections.key_value('app')" in source
-    assert "creds['base_url']" in source
+    source = build.render_module([_spec_with_template()], "app", "bearer_token")
+    assert "connections.bearer_token('app')" in source
+    assert "creds.url" in source
     # The source host must not survive into the generated code.
     assert "dev.service-now.com" not in source
+
+
+def test_every_auth_kind_generates_valid_python():
+    """The kind is the operator's choice, so all of them have to work."""
+    spec = _spec_with_template()
+    for kind in build.AUTH_KINDS:
+        ok, why = build.compiles(build.render_module([spec], "app", kind))
+        assert ok, f"{kind}: {why}"
+
+
+def test_the_chosen_auth_kind_reaches_both_the_decorator_and_the_call():
+    """A tool declaring one credential type and reading another imports fine
+    and fails at run time with an empty credential."""
+    source = build.render_module([_spec_with_template()], "app", "basic_auth")
+    assert "ConnectionType.BASIC_AUTH" in source
+    assert "connections.basic_auth('app')" in source
+    assert "auth = (creds.username, creds.password)" in source
+
+
+def test_a_connection_with_no_url_fails_with_a_readable_message():
+    """Rather than requests reporting an invalid URL for `/api/now/table/x`."""
+    source = build.render_module([_spec_with_template()], "app", "bearer_token")
+    assert "has no server URL configured for this environment" in source
 
 
 def test_tools_sharing_a_host_share_one_connection():

@@ -29,21 +29,25 @@ a faithful tool migration.
 
 Credentials
 -----------
-Every tool for one host shares one `key_value` connection holding two entries:
+Every tool for one host shares one connection, whose auth kind the operator
+chooses from the same menu the Copilot corridor offers. That choice decides the
+generated code, because each of Orchestrate's credential types is read through
+its own accessor and exposes its own fields:
 
-    base_url      where the tool points on the target
-    auth_header   the full Authorization header value
+    bearer_token    connections.bearer_token(app)  -> .url, .token
+    basic_auth      connections.basic_auth(app)    -> .url, .username, .password
+    api_key_auth    connections.api_key_auth(app)  -> .url, .api_key
+    key_value_creds connections.key_value(app)     -> a free-form mapping
 
-`key_value` rather than a typed bearer/basic connection because the source
-never reveals which it was -- n8n encrypts credential values and its API
-redacts them, so the migration knows a credential *existed* and what it was
-called, never what it held. Asking the user for the finished header value
-covers bearer, basic, and bare API keys with one prompt and no guessing.
+The typed kinds all carry `url`, which is why the endpoint is read from the
+connection rather than frozen into the generated source: a migrated tool almost
+never points at the instance it was exported from, and a baked-in endpoint is
+the most common reason one 404s on the target.
 
-Carrying `base_url` in the connection rather than baking it into the code is
-deliberate too: a migrated tool almost never points at the instance it was
-exported from, and an endpoint frozen into generated source is the single most
-common reason a migrated tool 404s on the target.
+The auth kind is asked rather than inferred because n8n does not reveal it.
+It encrypts credential values and its API redacts them, so a migration knows a
+credential existed and what it was called -- never what it held, and not
+reliably how it was presented.
 """
 
 from __future__ import annotations
@@ -54,13 +58,56 @@ from pathlib import Path
 
 from wheatear.connectors.n8n.http_tools import HttpToolSpec, placeholders_in
 
-# The connection keys every generated tool reads. Named here rather than
-# spelled out at each use so the generator, the provisioner and the wizard
-# prompt cannot drift apart.
+# The `key_value` keys, used only when the operator picks that kind. Named here
+# rather than spelled out at each use so the generator, the provisioner and the
+# wizard prompt cannot drift apart.
 KEY_BASE_URL = "base_url"
 KEY_AUTH_HEADER = "auth_header"
 
 _TEMPLATE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+# How each auth kind is read at runtime and turned into a request. One table
+# rather than a branch per kind in the renderer, so adding a kind is a row.
+#
+#   accessor     the `connections.*` function to call
+#   conn_type    the ConnectionType the @tool decorator must declare
+#   base         expression yielding the server URL
+#   apply        statements that add authentication to the outgoing request
+AUTH_KINDS: dict[str, dict[str, object]] = {
+    "bearer_token": {
+        "accessor": "bearer_token",
+        "conn_type": "BEARER_TOKEN",
+        "base": "str(creds.url or '').rstrip('/')",
+        "apply": ["    headers['Authorization'] = f'Bearer {creds.token}'"],
+    },
+    "basic_auth": {
+        "accessor": "basic_auth",
+        "conn_type": "BASIC_AUTH",
+        "base": "str(creds.url or '').rstrip('/')",
+        "apply": ["    auth = (creds.username, creds.password)"],
+    },
+    "api_key_auth": {
+        "accessor": "api_key_auth",
+        "conn_type": "API_KEY_AUTH",
+        # An API key has no single standard home. The Authorization header is
+        # the most common and the least surprising; a source that wanted it in
+        # a query parameter already encoded that as a constant.
+        "base": "str(creds.url or '').rstrip('/')",
+        "apply": ["    headers['Authorization'] = str(creds.api_key)"],
+    },
+    "key_value_creds": {
+        "accessor": "key_value",
+        "conn_type": "KEY_VALUE",
+        "base": f"str(creds[{KEY_BASE_URL!r}]).rstrip('/')",
+        "apply": [
+            f"    header_value = creds.get({KEY_AUTH_HEADER!r})",
+            "    if header_value:",
+            "        headers['Authorization'] = str(header_value)",
+        ],
+    },
+}
+
+DEFAULT_AUTH_KIND = "bearer_token"
 
 
 def safe_identifier(name: str) -> str:
@@ -90,8 +137,9 @@ def _py(value: str) -> str:
     return repr(value)
 
 
-def _render_tool(spec: HttpToolSpec, app_id: str) -> str:
+def _render_tool(spec: HttpToolSpec, app_id: str, auth_kind: str = DEFAULT_AUTH_KIND) -> str:
     """One `@tool` function reproducing one source HTTP tool."""
+    auth = AUTH_KINDS.get(auth_kind) or AUTH_KINDS[DEFAULT_AUTH_KIND]
     fn = safe_identifier(spec.operation_id())
     args = [safe_identifier(p.name) for p in spec.params]
     arg_list = ", ".join(f"{a}: str" for a in args) or ""
@@ -108,7 +156,7 @@ def _render_tool(spec: HttpToolSpec, app_id: str) -> str:
     lines.append("    permission=ToolPermission.READ_ONLY,")
     lines.append(
         f"    expected_credentials=[{{'app_id': {_py(app_id)}, "
-        "'type': ConnectionType.KEY_VALUE}],"
+        f"'type': ConnectionType.{auth['conn_type']}}}],"
     )
     lines.append(")")
     lines.append(f"def {fn}({arg_list}) -> dict:")
@@ -125,8 +173,14 @@ def _render_tool(spec: HttpToolSpec, app_id: str) -> str:
     doc.append('    """')
     lines.extend(doc)
 
-    lines.append(f"    creds = connections.key_value({_py(app_id)})")
-    lines.append(f"    base = str(creds[{_py(KEY_BASE_URL)}]).rstrip('/')")
+    lines.append(f"    creds = connections.{auth['accessor']}({_py(app_id)})")
+    lines.append(f"    base = {auth['base']}")
+    # A connection that exists but has no URL is the failure this whole change
+    # is about. Saying so beats `requests` reporting an invalid URL for `/api`.
+    lines.append("    if not base:")
+    lines.append(
+        f"        raise RuntimeError({_py(f'Connection {app_id} has no server URL configured for this environment.')})"
+    )
 
     # Path: substitute `{placeholder}` segments from the arguments.
     path_expr = _py(spec.path)
@@ -164,12 +218,11 @@ def _render_tool(spec: HttpToolSpec, app_id: str) -> str:
             lines.append(f"        params[{_py(p.name)}] = {arg}")
 
     lines.append("    headers = {'Accept': 'application/json'}")
-    lines.append(f"    header_value = creds.get({_py(KEY_AUTH_HEADER)})")
-    lines.append("    if header_value:")
-    lines.append("        headers['Authorization'] = str(header_value)")
+    lines.append("    auth = None")
+    lines.extend(auth["apply"])
     lines.append(
         f"    response = requests.request({_py(spec.method)}, base + path, "
-        "params=params, headers=headers, timeout=60)"
+        "params=params, headers=headers, auth=auth, timeout=60)"
     )
     lines.append("    response.raise_for_status()")
     # Not every endpoint returns JSON; a tool that raises on an HTML error page
@@ -197,16 +250,23 @@ from ibm_watsonx_orchestrate.run import connections
 '''
 
 
-def render_module(specs: list[HttpToolSpec], app_id: str) -> str:
+def render_module(
+    specs: list[HttpToolSpec], app_id: str, auth_kind: str = DEFAULT_AUTH_KIND
+) -> str:
     """A complete, importable Python tool module for one host's tools."""
-    body = "\n\n\n".join(_render_tool(spec, app_id) for spec in specs)
+    body = "\n\n\n".join(_render_tool(spec, app_id, auth_kind) for spec in specs)
     return f"{HEADER.format(app_id=app_id)}\n\n{body}\n"
 
 
-def write_module(specs: list[HttpToolSpec], app_id: str, destination: Path) -> Path:
+def write_module(
+    specs: list[HttpToolSpec],
+    app_id: str,
+    destination: Path,
+    auth_kind: str = DEFAULT_AUTH_KIND,
+) -> Path:
     """Render and write the module, returning the path written."""
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(render_module(specs, app_id))
+    destination.write_text(render_module(specs, app_id, auth_kind))
     return destination
 
 

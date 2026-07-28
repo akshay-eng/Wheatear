@@ -1889,7 +1889,7 @@ def _auto_wizard() -> bool:
             elif source == "n8n":
                 went_back = _n8n_source_wizard(target)
             else:
-                went_back = _copilot_studio_auto_wizard(source, target)
+                went_back = _copilot_studio_wizard(source, target)
             if went_back:
                 step = 2
                 continue
@@ -2200,6 +2200,21 @@ def _n8n_source_wizard(target: str) -> bool:
     # corridor, because an unfinished step decides whether an agent works.
     _show_model_usage()
     _show_n8n_manual_steps(reports, output_root)
+
+    from wheatear.reporting import facts_from_deploy_reports
+
+    _write_reports(
+        facts_from_deploy_reports(
+            reports,
+            results_by_name=selected_results,
+            source_platform="n8n",
+            source_label=(existing.n8n_base_url if existing else "") or "",
+            target_instance=orchestrate_creds.instance_url,
+            meter=_METER,
+            output_dir=output_root,
+        ),
+        output_root,
+    )
     return False
 
 
@@ -2248,6 +2263,257 @@ def _show_n8n_manual_steps(reports: list, output_root: Path) -> None:
             title=f"[bold yellow]{len(outstanding)} thing(s) still to do by hand[/bold yellow]",
             border_style="yellow",
         )
+    )
+
+
+def _copilot_studio_wizard(source: str, target: str) -> bool:
+    """Choose how to reach the source solution, then migrate it.
+
+    Two ways in, because they answer different situations. Connecting to Power
+    Platform is right when you have credentials and want to browse what is
+    there. An exported file is right when you do not -- when the export was
+    handed to you by whoever owns the tenant, which is the normal case in a
+    migration engagement, and the one where a tool that insists on live
+    credentials is simply unusable.
+
+    Both converge on the same corridor: `migrate_solution` reads an unpacked
+    solution directory and does not care how it got there.
+    """
+    flush_input()
+    mode = questionary.select(
+        "Where is the Copilot Studio solution?",
+        choices=[
+            questionary.Choice(
+                "Connect to Power Platform and browse solutions (needs the PAC CLI)",
+                value="live",
+            ),
+            questionary.Choice(
+                "Use a solution export I already have (.zip or unpacked folder)",
+                value="file",
+            ),
+            questionary.Choice("◀ Back", value="back"),
+        ],
+    ).ask()
+    if _cancelled(mode) or mode == "back":
+        return True
+    if mode == "file":
+        return _copilot_studio_export_wizard(target)
+    return _copilot_studio_auto_wizard(source, target)
+
+
+def _unpack_solution(archive: Path, destination: Path) -> Path:
+    """Unpack a solution .zip, returning the directory holding solution.xml.
+
+    Exports are sometimes zipped with the solution at the root and sometimes
+    inside a folder, and a `TransferNow`-style download wraps the whole thing
+    again. So the marker file is searched for rather than assumed, which costs
+    one walk and removes a whole class of "no agents found" reports that really
+    mean "the files are one directory deeper than expected".
+    """
+    import zipfile
+
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as zf:
+        zf.extractall(destination)
+    return _find_solution_root(destination) or destination
+
+
+def _find_solution_root(start: Path) -> Path | None:
+    """The directory holding `solution.xml`, at or under `start`."""
+    start = Path(start)
+    if (start / "solution.xml").is_file():
+        return start
+    for candidate in sorted(start.rglob("solution.xml")):
+        return candidate.parent
+    return None
+
+
+def _copilot_studio_export_wizard(target: str) -> bool:
+    """Migrate a Copilot Studio solution export the operator already has."""
+    saved_config = load_config()
+    deploy = target == "orchestrate"
+
+    _step_header(1, 4, "Target credentials — watsonx Orchestrate")
+    orchestrate_creds: OrchestrateCredentials | None = None
+    if deploy:
+        orchestrate_creds = ask_orchestrate_credentials(saved_config)
+
+    _step_header(2, 4, "The solution export")
+    console.print(
+        Panel(
+            "Point Wheatear at a Copilot Studio solution export — either the [bold].zip[/bold]\n"
+            "you downloaded, or a folder you already unpacked it into.\n\n"
+            "A managed or unmanaged export both work. The folder Wheatear needs is the one\n"
+            "containing [bold]solution.xml[/bold]; if you give it a parent folder it will find it.",
+            title="[bold]Copilot Studio — solution export[/bold]",
+            border_style="cyan",
+        )
+    )
+    flush_input()
+    raw = questionary.path("Path to the export (.zip or folder):").ask()
+    if _cancelled(raw) or not str(raw).strip():
+        return True
+    given = Path(str(raw).strip()).expanduser()
+    if not given.exists():
+        console.print(f"[bold red]{escape(str(given))} does not exist.[/bold red]")
+        return True
+
+    work_root = Path.cwd() / "copilot-migration"
+    if given.is_file() and given.suffix.lower() == ".zip":
+        with console.status("  Unpacking the export…", spinner="dots"):
+            sol_dir = _unpack_solution(given, work_root / "_unpacked" / given.stem)
+    else:
+        found = _find_solution_root(given)
+        if found is None:
+            console.print(
+                f"[bold red]No solution.xml under {escape(str(given))}.[/bold red] "
+                "That folder does not look like an unpacked Copilot Studio solution."
+            )
+            return True
+        sol_dir = found
+    console.print(f"  [green]✓[/green]  solution at [cyan]{escape(str(sol_dir))}[/cyan]")
+
+    # Read the solution's own name so the output directory and the report say
+    # what was migrated rather than "export".
+    label = sol_dir.name
+    try:
+        import xml.etree.ElementTree as ET
+
+        root = ET.parse(sol_dir / "solution.xml").getroot()
+        unique = root.findtext(".//UniqueName")
+        if unique:
+            label = unique
+    except Exception:  # noqa: BLE001 - a missing name is cosmetic
+        pass
+
+    from wheatear.connectors.copilot_studio import solution_importer as si
+
+    try:
+        with console.status("  Reading the agents in this solution…", spinner="dots"):
+            bundle = si.import_bundle(sol_dir)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[bold red]Could not read that solution:[/bold red] {escape(str(exc)[:200])}")
+        return True
+
+    agents = list(bundle.workflow.agents)
+    if not agents:
+        console.print("[yellow]That solution contains no Copilot Studio agents.[/yellow]")
+        return True
+
+    _step_header(3, 4, "Choose the agents")
+    selected = _multiselect_menu(
+        "Select the agents to migrate (agents they delegate to are pulled in automatically):",
+        agents,
+        label_fn=lambda a: f"{a.name}"
+        + (f"  [dim]({len(a.collaborators)} collaborator(s))[/dim]" if a.collaborators else ""),
+        key_fn=lambda a: a.name,
+        noun="agent",
+    )
+    if not selected:
+        return True
+
+    # `migrate_solution` selects by schema name, which is what the records use.
+    wanted = {_schema_name_for(bundle, a.name) for a in selected}
+    wanted.discard(None)
+
+    _step_header(4, 4, "Migrate")
+    store = _foundry_store(saved_config)
+    provider = _corridor_provider(saved_config or WheatearConfig())
+    report = _run_export_solution_migration(
+        sol_dir, label, wanted, store, orchestrate_creds, provider, work_root
+    )
+    if report is not None:
+        _finish_migration(report, orchestrate_creds, work_root, source_platform="copilot-studio")
+    return False
+
+
+def _write_reports(facts, destination: Path) -> None:
+    """Write the three post-migration documents and say where they are."""
+    from wheatear.reporting import write_all
+
+    try:
+        written = write_all(facts, destination)
+    except OSError as exc:
+        console.print(f"  [yellow]Could not write the migration reports:[/yellow] {escape(str(exc))}")
+        return
+    body = Table.grid(padding=(0, 2))
+    body.add_column(style="bold", no_wrap=True)
+    body.add_column(style="dim")
+    labels = {
+        "MIGRATION-REPORT.md": "every agent, tool and mapping, with identifiers",
+        "EXECUTIVE-SUMMARY.md": "what moved and what is left, for a non-engineer",
+        "EVALUATION.md": "questions to ask each agent, and what a real answer looks like",
+    }
+    for path in written:
+        body.add_row(path.name, labels.get(path.name, ""))
+    console.print(
+        Panel(
+            Group(body, Text(""), Text(f"  {destination}", style="cyan")),
+            title="[bold cyan]Reports written[/bold cyan]",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+
+
+def _finish_migration(report, orchestrate_creds, output_base: Path, source_platform: str) -> None:
+    """The common tail of a Copilot migration: summary, model cost, reports."""
+    from wheatear.reporting import facts_from_solution_report
+
+    console.print()
+    _show_foundry_summary(report, orchestrate_creds)
+    _show_model_usage()
+    _show_manual_steps(report)
+    facts = facts_from_solution_report(
+        report,
+        source_platform="Microsoft Copilot Studio",
+        target_instance=orchestrate_creds.instance_url if orchestrate_creds else "",
+        meter=_METER,
+    )
+    _write_reports(facts, report.output_dir or output_base)
+
+
+def _schema_name_for(bundle, display_name: str) -> str | None:
+    """The record-level schema name behind a display name, if the bundle knows."""
+    for result in getattr(bundle, "results", []):
+        if result.agent.name == display_name:
+            return getattr(result.agent, "source_ref", None) or display_name
+    return display_name
+
+
+def _run_export_solution_migration(
+    sol_dir: Path,
+    label: str,
+    wanted: set,
+    store,
+    orchestrate_creds,
+    provider,
+    output_base: Path,
+):
+    """Run the compiled corridor over one already-unpacked solution."""
+    from wheatear.pipeline.solution_migration import migrate_solution
+
+    instance_url = orchestrate_creds.instance_url if orchestrate_creds else None
+    client, why = _orchestrate_client(orchestrate_creds)
+    token = None
+    if client is not None:
+        token = client._session.headers["Authorization"].split()[1]
+    elif orchestrate_creds is not None and not _confirm_dry_run(why):
+        return None
+
+    console.print(f"\n  [bold cyan]Solution:[/bold cyan]  [bold]{escape(label)}[/bold]")
+    return migrate_solution(
+        sol_dir,
+        output_base / _safe_dirname(label),
+        store=store,
+        client=client,
+        provider=provider,
+        instance_url=instance_url,
+        token=token,
+        api_key=os.environ.get(orchestrate_creds.api_key_env, "") if orchestrate_creds else None,
+        dry_run=client is None,
+        only=wanted or None,
+        report=_migration_reporter(),
     )
 
 
@@ -2509,6 +2775,18 @@ def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
         _show_model_usage()
         console.print()
         _show_manual_steps(report)
+
+        from wheatear.reporting import facts_from_solution_report
+
+        _write_reports(
+            facts_from_solution_report(
+                report,
+                source_platform="Microsoft Copilot Studio",
+                target_instance=orchestrate_creds.instance_url if orchestrate_creds else "",
+                meter=_METER,
+            ),
+            report.output_dir or output_base,
+        )
 
     finally:
         shutil.rmtree(scan_base, ignore_errors=True)
@@ -3615,11 +3893,16 @@ def _ask_endpoint_credentials(groups: list) -> dict[str, dict[str, str]]:
     carried over from a dev tenant is the single most common reason a migrated
     tool returns nothing.
 
-    The credential is asked for rather than carried: n8n encrypts credential
-    values and its API redacts them, so the migration knows a credential
-    existed and what it was called, never what it held.
+    The auth *kind* is chosen from the same menu the Copilot corridor offers,
+    not assumed. n8n encrypts credential values and its API redacts them, so a
+    migration knows a credential existed and what it was called -- never what it
+    held, and not reliably how it was presented. An earlier version of this
+    asked only for a finished `Authorization:` header, which quietly ruled out
+    basic auth and every per-user sign-in the target supports.
     """
-    answers: dict[str, dict[str, str]] = {}
+    from wheatear.connectors.orchestrate.provisioning import CredentialRequest
+
+    answers: dict[str, dict] = {}
     live = [g for g in groups if g.host]
     if not live:
         return answers
@@ -3660,6 +3943,8 @@ def _ask_endpoint_credentials(groups: list) -> dict[str, dict[str, str]]:
             )
         return answers
 
+    from wheatear.connectors.orchestrate.provisioning import looks_like_a_url
+
     for group in live:
         console.print()
         console.print(
@@ -3672,31 +3957,65 @@ def _ask_endpoint_credentials(groups: list) -> dict[str, dict[str, str]]:
                 f"[bold]{escape(group.credential_ref)}[/bold] "
                 f"[dim]— its value is not readable from n8n, so it has to be re-entered[/dim]"
             )
+
+        # Same menu, same wording as the Copilot corridor.
+        kind = _ask_auth_kind(group.app_id, ())
+        if kind is None:
+            return answers
+
         flush_input()
-        url = questionary.text(
-            f"Base URL for {group.app_id}:", default=group.host
-        ).ask()
+        url = questionary.text(f"Base URL for {group.app_id}:", default=group.host).ask()
         if _cancelled(url):
             return answers
-        url = (url or "").strip()
-        from wheatear.connectors.orchestrate.provisioning import looks_like_a_url
+        url = (url or "").strip() or group.host
+        if not looks_like_a_url(url):
+            console.print(
+                f"    [yellow]![/yellow] {escape(url)} does not look like a URL; using it anyway."
+            )
 
-        if url and not looks_like_a_url(url):
-            console.print(f"    [yellow]![/yellow] {escape(url)} does not look like a URL; using it anyway.")
+        request = CredentialRequest(app_id=group.app_id, kind=kind, tools=group.tool_names)
+        preference = "team"
+        if request.fields:
+            flush_input()
+            preference = questionary.select(
+                f"How should `{group.app_id}` authenticate?",
+                choices=[
+                    questionary.Choice(
+                        "One shared credential — you supply it now, nobody is prompted later",
+                        value="team",
+                    ),
+                    questionary.Choice(
+                        "Each user signs in themselves — the agent prompts them the first time",
+                        value="member",
+                    ),
+                ],
+                default="team",
+            ).ask()
+            if _cancelled(preference):
+                return answers
+        request.preference = preference
 
-        flush_input()
-        header = questionary.password(
-            f"Authorization header value for {group.app_id} "
-            "(e.g. 'Bearer abc123' — leave blank if the API needs none):"
-        ).ask()
-        if _cancelled(header):
-            return answers
+        secrets: dict[str, str] = {}
+        if preference == "team" and request.fields:
+            got = _ask_credentials(request)
+            if got is None:
+                return answers
+            secrets = got
+
         answers[group.app_id] = {
-            "base_url": url or group.host,
-            "auth_header": (header or "").strip(),
+            "base_url": url,
+            "auth_kind": kind,
+            "preference": preference,
+            "secrets": secrets,
         }
-        shown = "stored" if (header or "").strip() else "none — deploying unauthenticated"
-        console.print(f"    [green]✓[/green] endpoint {escape(url or group.host)}, credential {shown}")
+        how = (
+            "each user signs in themselves"
+            if preference == "member"
+            else ("credential stored" if secrets else "no credential given")
+        )
+        console.print(
+            f"    [green]✓[/green] {escape(kind.replace('_', ' '))} at {escape(url)} — {how}"
+        )
     return answers
 
 

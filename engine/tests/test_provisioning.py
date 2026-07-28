@@ -72,12 +72,29 @@ def test_a_team_connection_takes_the_secret_through_the_python_api(controller, m
     done = provisioning.provision(request, {"username": "svc", "password": "hunter2"})
 
     creds = [c for c in controller.calls if c[0] == "credentials"]
-    assert len(creds) == 1
-    assert creds[0][1] == "snow"
-    assert creds[0][2].password == "hunter2"
+    # One per environment: a deployed agent runs against `live`, so a secret
+    # stored only in `draft` produces a tool that works in the builder's
+    # preview and fails after deploy.
+    assert len(creds) == len(provisioning.ENVIRONMENTS)
+    assert {c[1] for c in creds} == {"snow"}
+    assert all(c[2].password == "hunter2" for c in creds)
     assert any("stored the credential" in line for line in done)
     # The statement handed back to the operator must not repeat the secret.
     assert all("hunter2" not in line for line in done)
+
+
+def test_both_environments_are_configured_not_just_draft(controller, monkeypatch):
+    """The bug this guards against was found live: a migration reported success,
+    and the deployed tool raised `KeyError: 'base_url'` because the connection
+    existed only in `draft`."""
+    monkeypatch.setattr(provisioning, "ensure_connection", lambda app_id: False)
+    request = CredentialRequest(app_id="snow", kind="basic_auth", preference="team")
+
+    provisioning.provision(request, {"username": "svc", "password": "hunter2"})
+
+    configured = [c for c in controller.calls if c[0] == "configure"]
+    assert len(configured) == 2
+    assert "draft" in provisioning.ENVIRONMENTS and "live" in provisioning.ENVIRONMENTS
 
 
 def test_an_unknown_auth_kind_is_refused_rather_than_guessed(controller):

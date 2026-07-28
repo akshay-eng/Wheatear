@@ -98,7 +98,7 @@ def find_or_create_mcp_toolkit(
     tools_arg = ",".join(include_names) if include_names else "*"
     _log(f"no toolkit for {server_url} yet — registering via ADK (transport={tk_transport}, tools={tools_arg})…")
     result = subprocess.run(
-        ["orchestrate", "toolkits", "add", "--kind", "mcp", "--name", tk_name,
+        [_adk_cli(), "toolkits", "add", "--kind", "mcp", "--name", tk_name,
          "--description", f"MCP server migrated from n8n ({server_url})",
          "--url", server_url, "--transport", tk_transport, "--tools", tools_arg],
         capture_output=True, text=True, timeout=timeout,
@@ -180,7 +180,7 @@ def import_knowledge_base(
         yaml.safe_dump(spec, fh, sort_keys=False)
         spec_path = fh.name
     subprocess.run(
-        ["orchestrate", "knowledge-bases", "import", "-f", spec_path],
+        [_adk_cli(), "knowledge-bases", "import", "-f", spec_path],
         capture_output=True, text=True, timeout=180,
     )
     _log("documents uploaded; embedding + indexing (this can take a moment)…")
@@ -206,12 +206,52 @@ def import_knowledge_base(
     return kb_id
 
 
-def resolve_kb_files(detail: str | None) -> list[str]:
-    """Expand a file-upload KB's recorded selector (e.g. a glob path) into real
-    files. Returns [] if nothing resolves (human must supply them)."""
+def resolve_kb_files(detail: str | None, extra_roots: list[Path] | None = None) -> list[str]:
+    """Expand a file-upload KB's recorded selector into real files.
+
+    The recorded path is written from the *source's* point of view, and the
+    source is frequently not this machine. n8n in Docker records
+    `/home/node/.n8n-files/hr-kb/*.pdf`; the files are on the host under the
+    operator's own home. Copilot Studio records a Windows path. Neither
+    resolves here, and the consequence is not a missing file -- it is an agent
+    that deploys with no knowledge base, answers from the model's memory
+    instead of the handbook, and sounds exactly as confident either way.
+    (Observed: a migrated HR agent stating a leave allowance that was not the
+    one in the PDF.)
+
+    So the literal path is tried first, then the same *tail* under this user's
+    home and under any roots the caller offers. Returns [] when nothing
+    resolves, which the caller reports as a manual step.
+    """
     if not detail:
         return []
-    return sorted(glob(str(Path(detail).expanduser())))
+
+    literal = sorted(glob(str(Path(detail).expanduser())))
+    if literal:
+        return literal
+
+    pattern = Path(detail)
+    candidates: list[Path] = []
+    # `/home/node/.n8n-files/hr-kb/*.pdf` -> `~/.n8n-files/hr-kb/*.pdf`. Any
+    # home-like prefix is swapped for this user's, keeping the rest intact.
+    parts = pattern.parts
+    for marker in ("home", "Users"):
+        if marker in parts:
+            index = parts.index(marker)
+            # skip the marker and the username that follows it
+            tail = parts[index + 2 :]
+            if tail:
+                candidates.append(Path.home().joinpath(*tail))
+    for root in extra_roots or []:
+        candidates.append(Path(root) / pattern.name)
+        if len(pattern.parts) > 1:
+            candidates.append(Path(root).joinpath(*pattern.parts[-2:]))
+
+    for candidate in candidates:
+        found = sorted(glob(str(candidate.expanduser())))
+        if found:
+            return found
+    return []
 
 
 # --------------------------------------------------------------------------- #
@@ -334,7 +374,9 @@ def provision_and_deploy(
                 answer = (endpoint_answers or {}).get(group.app_id)
                 if answer:
                     group.base_url = answer.get("base_url") or group.base_url
-                    group.auth_header = answer.get("auth_header")
+                    group.auth_kind = answer.get("auth_kind") or group.auth_kind
+                    group.preference = answer.get("preference") or group.preference
+                    group.secrets = dict(answer.get("secrets") or {})
                 try:
                     alog(f"tool: rebuilding {len(group.specs)} HTTP tool(s) for {group.host}")
                     ensure_credentials(group, log=alog)
