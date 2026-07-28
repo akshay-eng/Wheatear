@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from wheatear.ir.schema import Agent
 
@@ -107,6 +108,13 @@ class ImportResult:
     raw_tools: list[RawToolRef] = field(default_factory=list)
     raw_knowledge_refs: list[RawKnowledgeRef] = field(default_factory=list)
     raw_connection_refs: list[str] = field(default_factory=list)
+    # Tools the source described completely enough to *rebuild* on the target:
+    # endpoint, method, parameters, and which of those the model supplies.
+    # Distinct in kind from `raw_tools`, which are references to be resolved
+    # against a target catalog -- these are definitions to be constructed, so
+    # they survive a target that has never heard of the tool. Held loosely
+    # typed so this module keeps knowing nothing about any one connector.
+    endpoint_tools: list[Any] = field(default_factory=list)
     # Process-level notes from Normalize itself (e.g. "skipped an unrecognized
     # component type") -- distinct from Topic.unsupported_notes, which are
     # about agent *content* the parser couldn't model.

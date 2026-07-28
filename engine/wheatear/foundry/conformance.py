@@ -60,12 +60,25 @@ def dataverse_version() -> str:
     return DATAVERSE_API_VERSION
 
 
+# The n8n node API generation this project's mapping addresses. n8n versions
+# its *nodes* independently of the product (an `agent` node is typeVersion 2
+# while n8n itself is 2.31.7), and the node schema is what a mapping is built
+# against -- so pinning the product version would make every n8n patch release
+# look like contract drift while a genuine node schema change looked like none.
+N8N_NODE_API_VERSION = "langchain-v2"
+
+
+def n8n_version() -> str:
+    return N8N_NODE_API_VERSION
+
+
 # Which declared version governs which platform. A platform absent here has no
 # declared contract this project knows how to check, and says so rather than
 # silently passing.
 PLATFORM_VERSIONS: dict[str, Any] = {
     "orchestrate": ("adk", adk_version),
     "copilot-studio": ("dataverse-api", dataverse_version),
+    "n8n": ("n8n-node-api", n8n_version),
 }
 
 

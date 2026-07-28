@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from wheatear.connectors.base import ImportResult, RawKnowledgeRef, RawToolRef
-from wheatear.connectors.n8n import graph
+from wheatear.connectors.n8n import graph, http_tools
 from wheatear.ir.schema import Agent, AgentRef, Workflow
 from wheatear.workflow import assemble_workflow
 
@@ -151,6 +151,7 @@ def _import_class_a(wf: graph.N8nWorkflow, agent_name: str, classify) -> ImportR
     import_notes: list[str] = []
     raw_tools: list[RawToolRef] = []
     raw_knowledge: list[RawKnowledgeRef] = []
+    http_specs: list[http_tools.HttpToolSpec] = []
 
     # Model (ai_languageModel edge).
     for lm in wf.sources_into(agent_name, graph.OUT_MODEL):
@@ -202,6 +203,27 @@ def _import_class_a(wf: graph.N8nWorkflow, agent_name: str, classify) -> ImportR
                         notes="Referenced workflow not provided in this import; fetch it to complete migration.",
                     )
                 )
+        elif http_tools.is_http_tool(tool):
+            # An HTTP request tool is a complete API call, not an opaque
+            # connector: it names its own endpoint, its parameters and which of
+            # them the model supplies. Classified as "http" so the provisioner
+            # can rebuild it on the target instead of filing it for a human --
+            # as "connector" these were reported as unmigratable and the agent
+            # arrived with no tools at all.
+            spec = http_tools.extract(tool)
+            raw_tools.append(
+                RawToolRef(
+                    name=spec.name,
+                    kind="http",
+                    source_ref=ttype,
+                    description=spec.description or None,
+                    operation_id=spec.operation_id(),
+                    inputs=[p.to_tool_param() for p in spec.params],
+                    connection_reference=spec.credential_ref,
+                )
+            )
+            http_specs.append(spec)
+            import_notes.extend(f"{spec.name}: {note}" for note in spec.notes)
         else:
             # A plain connector node wired as a tool -> catalog match downstream.
             app = tool.get("name")
@@ -220,6 +242,7 @@ def _import_class_a(wf: graph.N8nWorkflow, agent_name: str, classify) -> ImportR
         raw_tools=raw_tools,
         raw_knowledge_refs=raw_knowledge,
         raw_connection_refs=raw_connection_refs,
+        endpoint_tools=http_specs,
         import_notes=import_notes,
     )
 

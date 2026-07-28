@@ -120,6 +120,15 @@ def default_probes(platform: str) -> list[ProbeSource]:
 
         sources.append(DataverseProbe())
         sources.append(DataverseWriteModel())
+    elif platform == "n8n":
+        # Replaces the generic scan rather than adding to it. n8n keeps every
+        # entity inside one workflow document, so the generic tree walk sees a
+        # handful of files instead of agents, tools and connections -- and two
+        # sources disagreeing about what an n8n record *is* would merge into a
+        # shape that describes neither.
+        from wheatear.foundry.probes.n8n import N8nExportScan
+
+        sources = [N8nExportScan()]
     return sources
 
 

@@ -33,9 +33,26 @@ from pathlib import Path
 
 import yaml
 
+from wheatear.connectors.orchestrate import http_tool_deploy
 from wheatear.connectors.orchestrate.exporter import _sanitize_name
+from wheatear.connectors.orchestrate.http_tool_deploy import ensure_credentials, import_tools
 from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient
 from wheatear.ir.schema import Agent, Workflow
+
+
+def _adk_cli() -> str:
+    """The ADK CLI to import tools with.
+
+    Resolved rather than assumed to be on PATH: in a virtualenv the ADK sits at
+    `<venv>/bin/orchestrate`, which a process launched as `.venv/bin/python`
+    has nowhere on PATH.
+    """
+    try:
+        from wheatear.model_matrix.target_sources.orchestrate import find_cli
+
+        return find_cli() or "orchestrate"
+    except Exception:  # noqa: BLE001
+        return "orchestrate"
 
 
 @dataclass
@@ -204,9 +221,15 @@ def resolve_kb_files(detail: str | None) -> list[str]:
 def generate_description(provider, agent: Agent) -> str:
     """AI-generate a concise (1-2 sentence) agent description from its
     instructions. Falls back to the first sentence if no provider / on error."""
-    fallback = (agent.description or agent.instructions or agent.name).strip()
+    # `instructions` is what the Translate stage produced; `existing_instructions`
+    # is what the source actually had. Reading only the former made this a silent
+    # no-op for any corridor that deploys without translating first -- the n8n
+    # path does -- so every agent got the first line of its own system prompt as
+    # its catalog description and no model was ever called.
+    source_text = agent.instructions or agent.existing_instructions
+    fallback = (agent.description or source_text or agent.name).strip()
     fallback = fallback.split("\n", 1)[0][:240] or agent.name
-    if provider is None or not agent.instructions:
+    if provider is None or not source_text:
         return fallback
     try:
         from pydantic import BaseModel, Field
@@ -217,7 +240,7 @@ def generate_description(provider, agent: Agent) -> str:
         prompt = (
             "Write a concise, 1-2 sentence description of what this AI agent does, "
             "for a catalog card. No preamble, just the description.\n\n"
-            f"Agent name: {agent.name}\n\nInstructions:\n{agent.instructions[:2000]}"
+            f"Agent name: {agent.name}\n\nInstructions:\n{source_text[:2000]}"
         )
         out = provider.generate_structured(prompt, _Desc)
         return (out.description or fallback).strip()[:1000]
@@ -236,10 +259,22 @@ def provision_and_deploy(
     llm: str,
     provider=None,
     on_progress=None,
+    endpoint_answers: dict[str, dict[str, str]] | None = None,
+    tool_output_dir: Path | None = None,
 ) -> list[AgentDeployReport]:
     """Provision dependencies + create every agent in the workflow, leaf-first.
     `results_by_name` maps agent name -> the ImportResult (for raw MCP/KB refs).
+
+    `endpoint_answers` maps a connection app id to the base URL and auth header
+    a person confirmed for it. Passed in rather than prompted for here because
+    this module has no terminal: the wizard asks, the CLI can be told, and both
+    reach the same code. Absent an answer the source's own endpoint is used and
+    the tool is deployed unauthenticated, which fails visibly at call time
+    rather than silently deploying a tool nobody knows is broken.
+
     Returns a per-agent report."""
+    tool_output_dir = tool_output_dir or Path.cwd() / "n8n-migration" / "_tools"
+    adk_cli = _adk_cli()
     reports: list[AgentDeployReport] = []
     name_to_id: dict[str, str] = {}  # sanitized agent name -> created id
 
@@ -280,9 +315,47 @@ def provision_and_deploy(
                     except Exception as exc:  # noqa: BLE001
                         alog(f"tool: FAILED to attach '{raw.name}' — {str(exc)[:80]}")
                         warnings.append(f"MCP tool '{raw.name}' not attached: {str(exc)[:80]}")
+                elif raw.kind == "http":
+                    pass  # rebuilt per host below, not per tool reference
                 elif raw.kind != "mcp":
                     alog(f"tool: '{raw.name}' ({raw.kind}) needs manual provisioning — left in review manifest")
                     warnings.append(f"tool '{raw.name}' ({raw.kind}) not auto-provisioned")
+
+            # 1b. HTTP tools the source described completely enough to rebuild.
+            #     Grouped by host: tools that shared one credential on the
+            #     source share one connection here, so a person is asked for a
+            #     given API's token once rather than once per operation.
+            for group in http_tool_deploy.plan(res.endpoint_tools if res else []):
+                if not group.host:
+                    for spec in group.specs:
+                        alog(f"tool: '{spec.name}' has no usable endpoint — left in review manifest")
+                        warnings.append(f"tool '{spec.name}' had no endpoint to rebuild")
+                    continue
+                answer = (endpoint_answers or {}).get(group.app_id)
+                if answer:
+                    group.base_url = answer.get("base_url") or group.base_url
+                    group.auth_header = answer.get("auth_header")
+                try:
+                    alog(f"tool: rebuilding {len(group.specs)} HTTP tool(s) for {group.host}")
+                    ensure_credentials(group, log=alog)
+                    ok_import, names = import_tools(
+                        group, tool_output_dir / _sanitize_name(agent.name), adk_cli, log=alog
+                    )
+                    if not ok_import:
+                        warnings.append(f"HTTP tools for {group.host} were not imported")
+                        continue
+                    ids = http_tool_deploy.tool_ids_for(client, names)
+                    tool_ids.extend(ids)
+                    report.tools.extend(names)
+                    alog(f"tool: attached {len(ids)}/{len(names)} rebuilt tool(s): {', '.join(names)}")
+                    if len(ids) < len(names):
+                        warnings.append(
+                            f"{len(names) - len(ids)} rebuilt tool(s) for {group.host} "
+                            "imported but could not be found on the tenant"
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    alog(f"tool: FAILED to rebuild tools for {group.host} — {str(exc)[:80]}")
+                    warnings.append(f"HTTP tools for {group.host} not attached: {str(exc)[:80]}")
 
             # 2. Knowledge bases (file uploads) -- likewise non-fatal.
             for kb in (res.raw_knowledge_refs if res else []):

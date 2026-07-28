@@ -2051,12 +2051,28 @@ def _n8n_source_wizard(target: str) -> bool:
         raw_workflows = n8n_importer._load_json_files(path)
 
     # --- import (two-pass bundle) -------------------------------------------
+    console.rule("[bold cyan]Read — parsing the n8n workflows[/bold cyan]", style="dim")
     with console.status("[bold]Extract: parsing n8n workflows..."):
         bundle = n8n_importer.import_workflows(raw_workflows)
     console.print(
-        f"[green]Extract[/green]    {len(bundle.results)} agent(s): "
-        + ", ".join(a.name for a in bundle.workflow.agents)
+        Text(
+            f"    {len(bundle.results)} agent(s): "
+            + ", ".join(a.name for a in bundle.workflow.agents),
+            style="dim",
+        )
     )
+    rebuilt = [s for r in bundle.results for s in r.endpoint_tools]
+    if rebuilt:
+        console.print(
+            Text(
+                f"    {len(rebuilt)} HTTP tool(s) read as rebuildable: "
+                + ", ".join(s.name for s in rebuilt),
+                style="dim",
+            )
+        )
+    for result in bundle.results:
+        for note in result.import_notes:
+            console.print(Text(f"    {note}", style="yellow"))
 
     # Narrow to the user's selection + its collaborator closure (a chosen
     # supervisor pulls in the agents it delegates to). None = export all.
@@ -2101,8 +2117,7 @@ def _n8n_source_wizard(target: str) -> bool:
         # one model pick for the whole workflow (same source model family)
         hint = next((a.model_hint for a in ordered if a.model_hint), None)
         llm, model_msg = _recommend_target_model(hint)
-        if model_msg:
-            console.print(f"  [dim]model:[/dim] {model_msg}")
+        _show_model_choice(ordered, llm, model_msg, live=orchestrate_creds is not None)
 
     for agent in ordered:
         res = by_name[agent.name]
@@ -2120,19 +2135,18 @@ def _n8n_source_wizard(target: str) -> bool:
         console.print(f"[green]Export complete[/green] — see {output_root}")
         return False
 
-    console.print("\n[bold]Provisioning & deploying to Orchestrate[/bold] (MCP tools, knowledge bases, collaborators)…")
+    console.rule(
+        "[bold cyan]Deploy — provisioning tools, knowledge and collaborators[/bold cyan]",
+        style="dim",
+    )
     from wheatear.connectors.orchestrate.provisioner import provision_and_deploy
     from wheatear.connectors.orchestrate.rest_client import OrchestrateRestClient
 
     # A real LLM provider for AI-generated agent descriptions (n8n has none).
-    desc_provider = None
-    try:
-        from wheatear.llm.factory import build_provider
-        cfg = existing or WheatearConfig()
-        if cfg.llm_provider in ("google", "anthropic"):
-            desc_provider = build_provider(cfg.llm_provider, resolve_api_key(cfg))
-    except Exception:  # noqa: BLE001
-        desc_provider = None
+    # Routed through `_corridor_provider` so every call is shown as it happens
+    # and metered: description generation is the one part of an n8n migration
+    # that costs money, and it was previously invisible.
+    desc_provider = _corridor_provider(existing or WheatearConfig())
 
     client = OrchestrateRestClient(
         os.environ.get(orchestrate_creds.api_key_env, ""),
@@ -2149,9 +2163,18 @@ def _n8n_source_wizard(target: str) -> bool:
         else:
             console.print(f"  [dim]{_esc(m)}[/dim]")
 
+    # Where the rebuilt HTTP tools should point, and how they sign in. Asked
+    # before deploying so the answers are in hand when the tools are created,
+    # rather than leaving a person to discover the question from a 401.
+    from wheatear.connectors.orchestrate import http_tool_deploy
+
+    all_specs = [s for r in selected_results.values() for s in r.endpoint_tools]
+    endpoint_answers = _ask_endpoint_credentials(http_tool_deploy.plan(all_specs))
+
     reports = provision_and_deploy(
         client, bundle.workflow, selected_results, llm or "groq/openai/gpt-oss-120b",
         provider=desc_provider, on_progress=_prov_log,
+        endpoint_answers=endpoint_answers, tool_output_dir=output_root / "_tools",
     )
 
     table = Table(title="n8n → orchestrate (deployed)")
@@ -2171,7 +2194,61 @@ def _n8n_source_wizard(target: str) -> bool:
             rp.error or rp.validation,
         )
     console.print(table)
+
+    # What the model was asked to do and what it cost, then the things a person
+    # still has to do by hand -- last and loudest, the same as the Copilot
+    # corridor, because an unfinished step decides whether an agent works.
+    _show_model_usage()
+    _show_n8n_manual_steps(reports, output_root)
     return False
+
+
+def _show_n8n_manual_steps(reports: list, output_root: Path) -> None:
+    """The work the migration could not finish, printed to be acted on.
+
+    Built from the deploy reports rather than a separate ledger so it cannot
+    disagree with the table above it: every warning a report carries is
+    something a person has to resolve, and burying those in a `validation`
+    column that wraps over six lines is how they get ignored.
+    """
+    outstanding: list[tuple[str, str]] = []
+    for rp in reports:
+        if rp.error:
+            outstanding.append((rp.name, f"deploy failed: {rp.error}"))
+        # `validation` carries "… | warning; warning" for anything not attached.
+        if "|" in (rp.validation or ""):
+            for warning in rp.validation.split("|", 1)[1].split(";"):
+                if warning.strip():
+                    outstanding.append((rp.name, warning.strip()))
+
+    if not outstanding:
+        console.print(
+            Panel(
+                "Every tool, knowledge base and collaborator the source used was rebuilt or\n"
+                "attached on the target. Nothing is left to do by hand.",
+                title="[bold green]Target is complete[/bold green]",
+                border_style="green",
+                expand=False,
+            )
+        )
+        return
+
+    body = Table.grid(padding=(0, 2))
+    body.add_column(style="bold", no_wrap=True)
+    body.add_column()
+    for agent, what in outstanding:
+        body.add_row(escape(agent), escape(what))
+    console.print(
+        Panel(
+            Group(
+                body,
+                Text(""),
+                Text(f"  Generated tool source: {output_root / '_tools'}", style="dim"),
+            ),
+            title=f"[bold yellow]{len(outstanding)} thing(s) still to do by hand[/bold yellow]",
+            border_style="yellow",
+        )
+    )
 
 
 def _copilot_studio_auto_wizard(source: str, target: str) -> bool:
@@ -3489,6 +3566,138 @@ def _setup_connections(report, client, instance_url: str, token: str) -> None:
                 console.print("  [dim]Left for the console.[/dim]")
             continue
         _configure_connection(CredentialRequest(app_id=app_id, kind="basic_auth", tools=tools))
+
+
+def _show_model_choice(agents: list, chosen: str | None, fallback_note: str, live: bool) -> None:
+    """Why this target model, in the matrix's own words.
+
+    The model choice is the least inspectable decision a migration makes -- a
+    source model name goes in and an unfamiliar target id comes out -- and
+    "trust me" is not good enough for the component that decides what every
+    migrated agent runs on. So the score, the runner-up and the matrix's own
+    rationale are shown, the same as the Copilot corridor does.
+    """
+    if not chosen:
+        return
+    from wheatear.pipeline.solution_migration import _model_reasoning
+
+    console.rule("[bold cyan]Model — what the migrated agents will run on[/bold cyan]", style="dim")
+    # One pick covers the whole workflow, so explain it once using the first
+    # agent that actually named a source model; the rest inherit it.
+    speaker = next((a for a in agents if a.model_hint), agents[0] if agents else None)
+    if speaker is None:
+        return
+    try:
+        for line in _model_reasoning(speaker, chosen, live):
+            console.print(Text(f"    {line}", style="dim"))
+    except Exception:  # noqa: BLE001 - explaining is optional, choosing is not
+        console.print(Text(f"    {speaker.model_hint} -> {chosen}", style="dim"))
+    if fallback_note:
+        console.print(Text(f"    {fallback_note}", style="dim"))
+    others = [a.name for a in agents if a is not speaker]
+    if others:
+        console.print(
+            Text(f"    the same model is used for {', '.join(others)}", style="dim")
+        )
+
+
+def _ask_endpoint_credentials(groups: list) -> dict[str, dict[str, str]]:
+    """Confirm where each rebuilt HTTP tool should point, and how it signs in.
+
+    Asked during the migration rather than left to the first call, for the same
+    reason the Copilot corridor asks: the person running the migration is the
+    only one who knows which instance the tools should hit, and the first time
+    anybody else finds out is a 401 inside a chat.
+
+    The source's own endpoint is offered as the default because it is usually
+    right and always informative -- but it is offered, not assumed. A migrated
+    tool very often has to point somewhere else, and an endpoint silently
+    carried over from a dev tenant is the single most common reason a migrated
+    tool returns nothing.
+
+    The credential is asked for rather than carried: n8n encrypts credential
+    values and its API redacts them, so the migration knows a credential
+    existed and what it was called, never what it held.
+    """
+    answers: dict[str, dict[str, str]] = {}
+    live = [g for g in groups if g.host]
+    if not live:
+        return answers
+
+    console.rule(
+        "[bold cyan]Tool endpoints — so the rebuilt tools work before anyone asks[/bold cyan]",
+        style="dim",
+    )
+    total = sum(len(g.specs) for g in live)
+    console.print(
+        f"  {total} HTTP tool(s) across {len(live)} host(s) were rebuilt from the source "
+        "workflow. Each needs an endpoint and a credential on the target."
+    )
+    flush_input()
+    pace = questionary.select(
+        "How do you want to handle them?",
+        choices=[
+            questionary.Choice("Show me each one — I'll confirm or change it", value="each"),
+            questionary.Choice(
+                "Use the source's endpoint for all of them and skip credentials — faster, "
+                "and I accept the tools may fail until I fix them by hand",
+                value="defaults",
+            ),
+        ],
+        default="each",
+    ).ask()
+    if _cancelled(pace) or pace == "defaults":
+        if pace == "defaults":
+            console.print(
+                Panel(
+                    "Endpoints carried over from the source; no credentials stored.\n"
+                    "Any tool needing authentication will fail on its first call with a 401 —\n"
+                    "set these in the console before relying on them:\n\n"
+                    + "\n".join(f"  • {escape(g.app_id)}  [dim]{escape(g.host)}[/dim]" for g in live),
+                    title="[bold yellow]Tool endpoints left as-is[/bold yellow]",
+                    border_style="yellow",
+                )
+            )
+        return answers
+
+    for group in live:
+        console.print()
+        console.print(
+            f"  [bold]{escape(group.app_id)}[/bold]  [dim]backs[/dim] "
+            f"{escape(', '.join(group.tool_names))}"
+        )
+        if group.credential_ref:
+            console.print(
+                f"    [dim]the source authenticated this with[/dim] "
+                f"[bold]{escape(group.credential_ref)}[/bold] "
+                f"[dim]— its value is not readable from n8n, so it has to be re-entered[/dim]"
+            )
+        flush_input()
+        url = questionary.text(
+            f"Base URL for {group.app_id}:", default=group.host
+        ).ask()
+        if _cancelled(url):
+            return answers
+        url = (url or "").strip()
+        from wheatear.connectors.orchestrate.provisioning import looks_like_a_url
+
+        if url and not looks_like_a_url(url):
+            console.print(f"    [yellow]![/yellow] {escape(url)} does not look like a URL; using it anyway.")
+
+        flush_input()
+        header = questionary.password(
+            f"Authorization header value for {group.app_id} "
+            "(e.g. 'Bearer abc123' — leave blank if the API needs none):"
+        ).ask()
+        if _cancelled(header):
+            return answers
+        answers[group.app_id] = {
+            "base_url": url or group.host,
+            "auth_header": (header or "").strip(),
+        }
+        shown = "stored" if (header or "").strip() else "none — deploying unauthenticated"
+        console.print(f"    [green]✓[/green] endpoint {escape(url or group.host)}, credential {shown}")
+    return answers
 
 
 def _connection_manual_step(app_id: str, tools: list[str], current) -> object:
