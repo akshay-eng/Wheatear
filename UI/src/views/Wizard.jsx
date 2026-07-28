@@ -131,7 +131,7 @@ function StepSource({ wiz, patch, back }) {
   return (
     <>
       <h2>Where are your agents today?</h2>
-      <p className="lede">Wheatear connects to the source platform read-only and never modifies it.</p>
+      <p className="lede">Agent Liftoff connects to the source platform read-only and never modifies it.</p>
       <div className="choice-list" role="radiogroup" aria-label="Source platform">
         {opts.map((o) => (
           <Choice
@@ -422,7 +422,7 @@ function StepLlm({ wiz, patch, back }) {
       <div style={{ marginTop: 18 }}>
         <Field
           label="API key environment variable" htmlFor="f-env"
-          hint="The key is read from this variable at run time — never stored by Wheatear."
+          hint="The key is read from this variable at run time — never stored by Agent Liftoff."
           hintIcon={KeyRound}
         >
           <input

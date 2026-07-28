@@ -22,17 +22,17 @@ from __future__ import annotations
 import base64
 import json
 import tempfile
-import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from wheatear.connectors.copilot_studio.auth import AuthError, TokenProvider
+from wheatear.connectors.copilot_studio import pac_client
+from wheatear.connectors.copilot_studio.auth import TokenProvider
 
 # Power Platform management API -- used for environment listing and solution
 # export. Tokens must be scoped to this URL.
 _MANAGEMENT_URL = "https://service.powerapps.com"
 _BAP_API = "https://api.bap.microsoft.com"
-_BAP_API_VERSION = "2022-01-01"
+_BAP_API_VERSION = "2023-06-01"
 
 # Dataverse Web API version used for all org-scoped queries.
 _DATAVERSE_API_VERSION = "v9.2"
@@ -58,6 +58,15 @@ class BotInfo:
     name: str
     schema_name: str
     description: str
+
+
+@dataclass
+class SolutionInfo:
+    id: str
+    unique_name: str
+    friendly_name: str
+    version: str
+    managed: bool
 
 
 class CopilotStudioClient:
@@ -100,6 +109,47 @@ class CopilotStudioClient:
         return envs
 
     # ------------------------------------------------------------------
+    # Solution listing
+    # ------------------------------------------------------------------
+
+    def list_solutions(
+        self, env: Environment, unmanaged_only: bool = True
+    ) -> list[SolutionInfo]:
+        """Return exportable Dataverse solutions in the environment."""
+        token = self._tokens.token_for(env.instance_url)
+        params = {
+            "$select": "solutionid,uniquename,friendlyname,version,ismanaged",
+            "$orderby": "friendlyname asc",
+        }
+        if unmanaged_only:
+            params["$filter"] = "ismanaged eq false"
+        resp = self._requests.get(
+            f"{env.instance_url}/api/data/{_DATAVERSE_API_VERSION}/solutions",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0",
+                "Accept": "application/json",
+            },
+            params=params,
+            timeout=30,
+        )
+        self._raise_for_status(resp, "list solutions")
+        return [
+            SolutionInfo(
+                id=str(item.get("solutionid", "")),
+                unique_name=str(item.get("uniquename", "")),
+                friendly_name=str(
+                    item.get("friendlyname") or item.get("uniquename") or ""
+                ),
+                version=str(item.get("version", "")),
+                managed=bool(item.get("ismanaged", False)),
+            )
+            for item in resp.json().get("value", [])
+            if item.get("solutionid") and item.get("uniquename")
+        ]
+
+    # ------------------------------------------------------------------
     # Bot listing
     # ------------------------------------------------------------------
 
@@ -114,7 +164,9 @@ class CopilotStudioClient:
                 "OData-Version": "4.0",
                 "Accept": "application/json",
             },
-            params={"$select": "botid,name,schemaname,description"},
+            # `description` is not present on the bot table in every
+            # Dataverse tenant. Discovery only needs these stable identifiers.
+            params={"$select": "botid,name,schemaname"},
             timeout=30,
         )
         self._raise_for_status(resp, "list bots")
@@ -125,7 +177,7 @@ class CopilotStudioClient:
                     id=item.get("botid", ""),
                     name=item.get("name", ""),
                     schema_name=item.get("schemaname", ""),
-                    description=item.get("description", "") or "",
+                    description="",
                 )
             )
         return bots
@@ -145,8 +197,20 @@ class CopilotStudioClient:
         """
         token = self._tokens.token_for(env.instance_url)
         solution_name = self._find_solution_for_bot(env, bot, token)
-        zip_bytes = self._export_solution(env, solution_name, token)
-        return self._extract_solution(zip_bytes, dest)
+        return self.export_solution(env, solution_name, dest, token=token)
+
+    def export_solution(
+        self,
+        env: Environment,
+        unique_name: str,
+        dest: Path,
+        *,
+        token: str | None = None,
+    ) -> Path:
+        """Export and PAC-unpack one solution, matching the TUI procedure."""
+        access_token = token or self._tokens.token_for(env.instance_url)
+        zip_bytes = self._export_solution(env, unique_name, access_token)
+        return self._unpack_solution(zip_bytes, dest)
 
     def _find_solution_for_bot(self, env: Environment, bot: BotInfo, token: str) -> str:
         """Return the uniquename of the Dataverse solution that contains bot."""
@@ -209,21 +273,13 @@ class CopilotStudioClient:
             raise ApiError(f"ExportSolution returned no file for solution '{solution_name}'.")
         return base64.b64decode(b64)
 
-    def _extract_solution(self, zip_bytes: bytes, dest: Path) -> Path:
-        """Extract the solution ZIP to dest and return the directory path.
-
-        The solution ZIP has the layout that solution_importer already reads:
-          bots/<schema>/bot.xml
-          botcomponents/<schema>/botcomponent.xml
-          ...
-        """
-        dest.mkdir(parents=True, exist_ok=True)
+    def _unpack_solution(self, zip_bytes: bytes, dest: Path) -> Path:
+        """Run PAC's offline unpack step over a packed Dataverse export."""
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             tmp.write(zip_bytes)
             tmp_path = Path(tmp.name)
         try:
-            with zipfile.ZipFile(tmp_path) as zf:
-                zf.extractall(dest)
+            pac_client.unpack_solution(tmp_path, dest)
         finally:
             tmp_path.unlink(missing_ok=True)
         return dest

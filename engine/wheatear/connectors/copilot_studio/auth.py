@@ -41,6 +41,34 @@ class AuthError(Exception):
 
 
 @dataclass
+class DeviceCodeLogin:
+    """An initiated device-code flow waiting for Microsoft sign-in."""
+
+    _app: object
+    _flow: dict
+
+    @property
+    def user_code(self) -> str:
+        return str(self._flow.get("user_code", ""))
+
+    @property
+    def verification_uri(self) -> str:
+        return str(
+            self._flow.get("verification_uri")
+            or self._flow.get("verification_url")
+            or "https://microsoft.com/devicelogin"
+        )
+
+    @property
+    def message(self) -> str:
+        return str(self._flow.get("message", ""))
+
+    @property
+    def expires_in(self) -> int:
+        return int(self._flow.get("expires_in", 900))
+
+
+@dataclass
 class TokenProvider:
     """Holds an authenticated MSAL session and can issue tokens for any
     resource scope without re-prompting the user.
@@ -54,6 +82,17 @@ class TokenProvider:
     _app: object
     _account: object | None  # None for service principal flow
     _is_confidential: bool
+
+    @property
+    def account_name(self) -> str:
+        if not isinstance(self._account, dict):
+            return ""
+        return str(
+            self._account.get("username")
+            or self._account.get("name")
+            or self._account.get("home_account_id")
+            or ""
+        )
 
     def token_for(self, resource_url: str) -> str:
         """Return an access token scoped to resource_url/.default.
@@ -86,18 +125,8 @@ class TokenProvider:
         return result["access_token"]
 
 
-def authenticate_device_code(
-    tenant_id: str,
-    on_code: Callable[[str], None],
-) -> TokenProvider:
-    """Start a device code flow, call on_code with the user-facing message
-    (containing the URL and one-time code to display in the TUI), then block
-    until the user completes authentication in their browser.
-
-    on_code receives the exact string Microsoft returns, e.g.:
-      "To sign in, use a web browser to open the page
-       https://microsoft.com/devicelogin and enter the code XXXXXXXX …"
-    """
+def begin_device_code(tenant_id: str = "organizations") -> DeviceCodeLogin:
+    """Initiate Microsoft sign-in without waiting for the user to finish."""
     try:
         import msal
     except ImportError as exc:
@@ -117,22 +146,34 @@ def authenticate_device_code(
             f"Could not start device code flow: "
             f"{flow.get('error_description') or flow.get('error')}"
         )
+    return DeviceCodeLogin(_app=app, _flow=flow)
 
-    on_code(flow["message"])
-    result = app.acquire_token_by_device_flow(flow)
 
+def complete_device_code(login: DeviceCodeLogin) -> TokenProvider:
+    """Wait for an initiated device-code flow and return its token provider."""
+    result = login._app.acquire_token_by_device_flow(login._flow)
     if "error" in result:
         raise AuthError(
             f"Authentication failed: "
             f"{result.get('error_description') or result.get('error')}"
         )
 
-    accounts = app.get_accounts()
+    accounts = login._app.get_accounts()
     return TokenProvider(
-        _app=app,
+        _app=login._app,
         _account=accounts[0] if accounts else None,
         _is_confidential=False,
     )
+
+
+def authenticate_device_code(
+    tenant_id: str,
+    on_code: Callable[[str], None],
+) -> TokenProvider:
+    """Run the blocking device-code flow used by the terminal wizard."""
+    login = begin_device_code(tenant_id)
+    on_code(login.message)
+    return complete_device_code(login)
 
 
 def authenticate_service_principal(

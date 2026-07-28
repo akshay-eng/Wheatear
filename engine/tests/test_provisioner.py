@@ -11,10 +11,12 @@ from wheatear.connectors.orchestrate.provisioner import (
 class _FakeClient:
     """Minimal stand-in for OrchestrateRestClient recording created agents."""
 
-    def __init__(self, toolkits=None, tools=None):
+    def __init__(self, toolkits=None, tools=None, existing_agents=None):
         self._toolkits = toolkits or []
         self._tools = tools or []
+        self._existing_agents = existing_agents or []
         self.created = []
+        self.deleted = []
         self._next = 0
 
     def list_toolkits(self):
@@ -24,7 +26,7 @@ class _FakeClient:
         return [t for t in self._tools if t.get("toolkit_id") == tk_id]
 
     def list_agents(self):
-        return []
+        return [*self._existing_agents, *self.created]
 
     def create_agent(self, spec):
         self._next += 1
@@ -41,7 +43,8 @@ class _FakeClient:
         }
 
     def delete_agent(self, aid):
-        pass
+        self.deleted.append(aid)
+        self._existing_agents = [agent for agent in self._existing_agents if agent["id"] != aid]
 
 
 def test_resolve_tool_ids_filters_by_include_names():
@@ -112,3 +115,55 @@ def test_provision_skips_agents_not_selected():
     client = _FakeClient()
     reports = provision_and_deploy(client, wf, {"Keep": ImportResult(agent=a1)}, "llm", provider=None)
     assert [r.name for r in reports] == ["Keep"]
+
+
+def test_rename_policy_preserves_existing_agent():
+    from wheatear.connectors.base import ImportResult
+    from wheatear.ir.schema import Agent
+    from wheatear.workflow import assemble_workflow
+
+    agent = Agent(name="HR Agent", source_platform="n8n", instructions="Help HR.")
+    workflow = assemble_workflow([agent], source_platform="n8n")
+    client = _FakeClient(existing_agents=[{"id": "old-hr", "name": "HR_Agent"}])
+
+    reports = provision_and_deploy(
+        client,
+        workflow,
+        {"HR Agent": ImportResult(agent=agent)},
+        "llm",
+        on_conflict="rename",
+    )
+
+    assert reports[0].ok
+    assert client.created[0]["name"] == "HR_Agent_2"
+    assert client.deleted == []
+
+
+def test_skip_policy_reuses_existing_collaborator_without_touching_it():
+    from wheatear.connectors.base import ImportResult
+    from wheatear.ir.schema import Agent, AgentRef
+    from wheatear.workflow import assemble_workflow
+
+    child = Agent(name="HR Agent", source_platform="n8n", instructions="Help HR.")
+    parent = Agent(
+        name="Supervisor",
+        source_platform="n8n",
+        instructions="Delegate HR questions.",
+        collaborators=[AgentRef(ref="HR Agent")],
+    )
+    workflow = assemble_workflow([parent, child], source_platform="n8n")
+    client = _FakeClient(existing_agents=[{"id": "old-hr", "name": "HR_Agent"}])
+    results = {
+        "HR Agent": ImportResult(agent=child),
+        "Supervisor": ImportResult(agent=parent),
+    }
+
+    reports = provision_and_deploy(
+        client, workflow, results, "llm", on_conflict="skip"
+    )
+
+    by_name = {report.name: report for report in reports}
+    assert by_name["HR Agent"].validation == "skipped; existing target agent retained"
+    supervisor = next(agent for agent in client.created if agent["name"] == "Supervisor")
+    assert supervisor["collaborators"] == ["old-hr"]
+    assert client.deleted == []

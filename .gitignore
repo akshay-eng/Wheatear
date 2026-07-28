@@ -94,6 +94,8 @@ __pycache__/
 *.pyo
 build/
 dist/
+UI/test-results/
+UI/playwright-report/
 
 .vscode/
 .idea/

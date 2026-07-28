@@ -1,7 +1,8 @@
-# wheatear
+# Agent Liftoff Engine
 
-Migrate AI agents and workflows between orchestration platforms. First corridor:
-Microsoft Copilot Studio → IBM watsonx Orchestrate.
+The Wheatear compiler behind Agent Liftoff migrates AI agents and workflows
+between orchestration platforms. Its production corridors are Microsoft
+Copilot Studio to IBM watsonx Orchestrate and n8n to IBM watsonx Orchestrate.
 
 ## Install (development)
 
@@ -16,6 +17,17 @@ LLM providers are optional extras — install whichever you'll actually use
 (`anthropic`, `google`; `openai` and `watsonx` extras exist but have no adapter yet).
 
 ## Usage
+
+### Agent Liftoff web console
+
+```bash
+cd ../UI && npm ci && npm run build
+cd ../engine
+wheatear-web
+```
+
+The service prints its active URL. It prefers port 8080 and automatically
+selects another open port when that port is occupied.
 
 ### Interactive (recommended for humans)
 

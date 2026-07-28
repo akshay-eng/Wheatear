@@ -13,10 +13,16 @@ Laid out by platform because that is how a person looks for them:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # engine/wheatear/assets.py -> engine/assets
-ASSETS = Path(__file__).resolve().parents[1] / "assets"
+ASSETS = Path(
+    os.environ.get(
+        "WHEATEAR_ASSETS_DIR",
+        Path(__file__).resolve().parents[1] / "assets",
+    )
+)
 
 
 def platform_dir(platform: str) -> Path:

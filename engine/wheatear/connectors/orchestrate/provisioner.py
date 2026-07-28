@@ -30,6 +30,7 @@ import time
 from dataclasses import dataclass, field
 from glob import glob
 from pathlib import Path
+from typing import Literal
 
 import yaml
 
@@ -236,12 +237,19 @@ def provision_and_deploy(
     llm: str,
     provider=None,
     on_progress=None,
+    on_conflict: Literal["rename", "update", "skip"] = "update",
 ) -> list[AgentDeployReport]:
     """Provision dependencies + create every agent in the workflow, leaf-first.
     `results_by_name` maps agent name -> the ImportResult (for raw MCP/KB refs).
     Returns a per-agent report."""
     reports: list[AgentDeployReport] = []
     name_to_id: dict[str, str] = {}  # sanitized agent name -> created id
+    existing_agents = {
+        str(agent.get("name")): agent
+        for agent in client.list_agents()
+        if agent.get("name") and agent.get("id")
+    }
+    taken_names = set(existing_agents)
 
     def log(msg: str) -> None:
         if on_progress:
@@ -254,6 +262,21 @@ def provision_and_deploy(
             continue
         report = AgentDeployReport(name=agent.name)
         alog = lambda m: log(f"[{agent.name}] {m}")  # noqa: E731
+        source_name = _sanitize_name(agent.name)
+        existing = existing_agents.get(source_name)
+        target_name = source_name
+        if existing and on_conflict == "skip":
+            report.agent_id = str(existing["id"])
+            report.ok = True
+            report.validation = "skipped; existing target agent retained"
+            name_to_id[source_name] = report.agent_id
+            alog("an agent with this name already exists — keeping it unchanged")
+            reports.append(report)
+            continue
+        if source_name in taken_names and on_conflict == "rename":
+            target_name = _free_target_name(source_name, taken_names)
+            alog(f"an agent with this name already exists — creating '{target_name}'")
+        taken_names.add(target_name)
         try:
             log(f"── {agent.name} ──────────────")
             res = results_by_name.get(agent.name)
@@ -323,7 +346,7 @@ def provision_and_deploy(
             # 5. Create the agent (upsert)
             instructions = agent.instructions or agent.existing_instructions or agent.name
             spec = {
-                "name": _sanitize_name(agent.name),
+                "name": target_name,
                 "display_name": agent.name,
                 "description": description,
                 "llm": llm,
@@ -334,15 +357,13 @@ def provision_and_deploy(
                 "knowledge_base": kb_ids,
                 "collaborators": collab_ids,
             }
-            sanitized = _sanitize_name(agent.name)
-            for existing in client.list_agents():
-                if existing.get("name") == sanitized and existing.get("id"):
-                    alog("found an existing agent with this name — replacing it (idempotent re-deploy)")
-                    client.delete_agent(existing["id"])
+            if existing and on_conflict == "update":
+                alog("found an existing agent with this name — replacing it")
+                client.delete_agent(existing["id"])
             alog(f"creating agent on tenant  (llm={llm}, {len(tool_ids)} tool(s), {len(kb_ids)} KB, {len(collab_ids)} collaborator(s))")
             created = client.create_agent(spec)
             report.agent_id = created.get("id")
-            name_to_id[_sanitize_name(agent.name)] = report.agent_id
+            name_to_id[source_name] = report.agent_id
             alog(f"created ({(report.agent_id or '')[:8]})")
 
             # 6. Validate wiring
@@ -364,3 +385,13 @@ def provision_and_deploy(
             report.error = str(exc)[:200]
         reports.append(report)
     return reports
+
+
+def _free_target_name(wanted: str, taken: set[str]) -> str:
+    if wanted not in taken:
+        return wanted
+    for index in range(2, 10_000):
+        candidate = f"{wanted}_{index}"
+        if candidate not in taken:
+            return candidate
+    raise RuntimeError(f"Could not find a free target name for {wanted}.")

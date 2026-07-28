@@ -877,6 +877,7 @@ def migrate_solution(
     store: FoundryStore,
     client: Any | None = None,
     provider: LLMProvider | None = None,
+    marketplace: list | None = None,
     instance_url: str | None = None,
     token: str | None = None,
     api_key: str | None = None,
@@ -932,7 +933,11 @@ def migrate_solution(
 
     # -- 3. Tool lookup -------------------------------------------------
     installed = build_catalog(client.list_all_tools()) if client is not None else []
-    marketplace = build_marketplace_catalog(tools_only(load_snapshot()))
+    marketplace = (
+        marketplace
+        if marketplace is not None
+        else build_marketplace_catalog(tools_only(load_snapshot()))
+    )
     result.installed_pool, result.catalog_pool = len(installed), len(marketplace)
     report(
         Event("lookup", f"pools: {len(installed)} installed on the instance, {len(marketplace)} in the catalog")

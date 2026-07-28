@@ -10,7 +10,7 @@ export function Sidebar({ route, open, onClose }) {
     <aside className={`sidebar${open ? " open" : ""}`} id="sidebar">
       <div className="sidebar-brand">
         <img src="./wheatear-mark-64.png" alt="" width={28} height={28} />
-        <div className="wordmark">Wheatear<small>CONSOLE</small></div>
+        <div className="wordmark">Agent Liftoff<small>CONSOLE</small></div>
       </div>
       <div className="sidebar-section">
         <span>Workspaces</span>
@@ -44,7 +44,7 @@ export function Sidebar({ route, open, onClose }) {
         {state.workspaces.length === 0 && <span className="nav-empty">None yet</span>}
       </nav>
       <div className="sidebar-foot">
-        <span className="ver">wheatear v0.1.0</span>
+        <span className="ver">Agent Liftoff v0.1.0</span>
         <a href="../index.html" className="icon-btn" aria-label="Project site" title="Project site">
           <Globe size={15} />
         </a>

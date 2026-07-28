@@ -32,7 +32,7 @@ export function collectAnswers(wiz, projectName) {
 export function buildAnswersYaml(p) {
   const q = (s) => `"${String(s ?? "").replace(/"/g, '\\"')}"`;
   return [
-    "# Wheatear — wizard answers",
+    "# Agent Liftoff - wizard answers",
     `project: ${q(p.name)}`,
     `saved_at: ${q(new Date(p.createdAt).toISOString())}`,
     "answers:",
