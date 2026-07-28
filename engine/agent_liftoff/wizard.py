@@ -618,9 +618,18 @@ def ask_llm_settings(
 
 
 def resolve_api_key(config: LiftoffConfig) -> str:
+    """Ask for (or recall) the key for the configured provider.
+
+    The label is the provider's *display* name, and the env var is that
+    provider's own -- `_prompt_api_key` prints the variable it read from, so a
+    provider borrowing another's variable would announce which one on the line
+    straight after somebody chose it.
+    """
     from agent_liftoff.creds import llm_key_name
+    from agent_liftoff.llm.factory import display_name
+
     return _prompt_api_key(
-        config.llm_provider,
+        display_name(config.llm_provider),
         llm_key_name(config.llm_provider),
         config.llm_key_env,
     )
@@ -3302,7 +3311,12 @@ def _corridor_provider(config: LiftoffConfig):
     try:
         provider = build_provider(config.llm_provider, key)
     except ValueError as exc:
-        console.print(f"  [yellow]{exc}[/yellow] Tool matching will choose nothing.")
+        from agent_liftoff.llm.factory import safe_error
+
+        console.print(
+            f"  [yellow]{escape(safe_error(exc, config.llm_provider))}[/yellow] "
+            "Tool matching will choose nothing."
+        )
         return None
     console.print(f"  [green]✓[/green]  {_provider_label(config.llm_provider)} will adjudicate tool matches")
     return _observed(provider)

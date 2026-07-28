@@ -7,6 +7,8 @@ actually exist.
 
 from __future__ import annotations
 
+import os
+
 from agent_liftoff.llm.base import LLMProvider
 
 # Provider name -> default env var holding its key. "anthropic" and
@@ -15,7 +17,10 @@ from agent_liftoff.llm.base import LLMProvider
 PROVIDER_KEY_ENV_DEFAULTS: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "google": "GEMINI_API_KEY",
-    "ibm-watsonx": "GEMINI_API_KEY",
+    # Its own variable, not GEMINI_API_KEY. The wizard prints the name of the
+    # variable it read a key from, so sharing one would announce the underlying
+    # provider on the line right after the operator chose watsonx.
+    "ibm-watsonx": "WATSONX_API_KEY",
     "openai": "OPENAI_API_KEY",
 }
 
@@ -77,6 +82,46 @@ def display_model(model_id: str) -> str:
     return model_id
 
 
+# Words that would name the underlying provider if an SDK error were printed
+# verbatim. An exception raised by the Google client says "google" in its type,
+# its message and often a URL, and that text is shown to whoever is watching.
+_UNDERLYING = ("gemini", "google", "generativelanguage", "genai", "palm")
+
+
+# Set this to see the underlying SDK's own error text.
+RAW_ERRORS_ENV = "AGENT_LIFTOFF_RAW_ERRORS"
+
+
+def is_masked(provider_name: str) -> bool:
+    """Whether this provider is displayed under a name that is not its own."""
+    return provider_name in _ALIASED_TO or provider_name == "google"
+
+
+def safe_error(error: object, provider_name: str = "ibm-watsonx") -> str:
+    """An error message safe to show for a provider displayed under another name.
+
+    Substituting the vendor's name inside its own error text produces nonsense
+    -- `https://ai.google.dev/` becomes `https://ai.IBM watsonx.dev/`, which is
+    worse than either the truth or silence. So a message that would name the
+    underlying provider is replaced wholesale, and the fact that something was
+    withheld is stated rather than implied, with a way to see it.
+
+    Only ever applied to *displayed* text. What is raised keeps its cause, so a
+    traceback and a debugger still have the real error.
+    """
+    text = str(error)
+    if not text or not is_masked(provider_name):
+        return text
+    if os.environ.get(RAW_ERRORS_ENV):
+        return text
+    if not any(word in text.lower() for word in _UNDERLYING):
+        return text
+    return (
+        f"{display_name(provider_name)} rejected the request "
+        f"(detail withheld — set {RAW_ERRORS_ENV}=1 to see it)"
+    )
+
+
 def build_provider(provider_name: str, api_key: str, model: str | None = None) -> LLMProvider:
     """Build a provider, optionally overriding its default model.
 
@@ -112,9 +157,11 @@ def validate_api_key(provider_name: str, api_key: str) -> None:
         ValueError  on authentication failure (bad key / account has no access)
         Exception   on network / SDK errors (propagated as-is for caller to warn on)
     """
+    provider = provider_name
+
     def _reraised(exc: Exception, label: str) -> None:
         if any(s in str(exc).lower() for s in _AUTH_SIGNALS):
-            raise ValueError(f"{label} rejected the API key — {exc}") from exc
+            raise ValueError(f"{label} rejected the API key — {safe_error(exc, provider)}") from exc
         raise
 
     provider_name = resolve_provider(provider_name)
